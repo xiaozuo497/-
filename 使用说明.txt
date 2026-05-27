@@ -1,0 +1,20 @@
+﻿生鲜物流协同优化系统 - 分享版
+
+使用方式：
+1. 先确认电脑已安装并启动 Docker Desktop。
+2. 双击“生鲜物流协同优化系统_Setup.exe”安装。
+3. 安装后从桌面快捷方式打开“Cold Chain Platform”。
+4. 第一次启动会自动构建并启动本地服务，可能需要几分钟。
+
+默认账号：
+管理员：admin / admin123
+调度员：dispatcher / dispatch123
+仓库员：warehouse / warehouse123
+司机：driver / driver123
+
+说明：
+- 本软件会在本机通过 Docker 启动数据库、后端和前端服务。
+- 如果没有 Docker Desktop，软件能打开状态页，但业务系统无法正常启动。
+- 如果 8000、5173、5432、6379 端口已被占用，请先关闭占用这些端口的软件。
+- 退出软件不会自动删除数据，Docker 卷中会保留本地数据库。
+- 算法口径已统一为 Word 文档中的四箱型、MLP 货损预测、GA + 2-opt、三维装箱可行性检验和 CarbonCost 绿色物流核算；开源说明见 OPEN_SOURCE_ALGORITHM.md。

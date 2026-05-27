@@ -1,0 +1,2 @@
+-- PostGIS will be enabled in the production database image.
+-- The MVP development stack starts with plain PostgreSQL to keep first boot light.

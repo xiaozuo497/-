@@ -1,0 +1,79 @@
+{
+  "name": "cold-chain-platform-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Windows desktop launcher for the cold-chain logistics platform.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "build": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.coldchain.platform.desktop",
+    "productName": "Cold Chain Platform",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "renderer.cjs",
+      "status.html",
+      "status.css",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "app/backend"
+      },
+      {
+        "from": "../frontend",
+        "to": "app/frontend",
+        "filter": [
+          "**/*",
+          "!node_modules/**"
+        ]
+      },
+      {
+        "from": "../backend/dist",
+        "to": "app/backend-local",
+        "filter": [
+          "cold-chain-api.exe"
+        ]
+      },
+      {
+        "from": "../infra",
+        "to": "app/infra"
+      },
+      {
+        "from": "../docker-compose.yml",
+        "to": "app/docker-compose.yml"
+      },
+      {
+        "from": "../.env.example",
+        "to": "app/.env.example"
+      },
+      {
+        "from": "../.env",
+        "to": "app/.env"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

@@ -1,0 +1,29 @@
+[project]
+name = "cold-chain-platform-api"
+version = "0.1.0"
+description = "Cloud cold-chain logistics optimization backend."
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.13.0",
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "sqlalchemy>=2.0.0",
+  "psycopg[binary]>=3.2.0",
+  "pydantic-settings>=2.4.0",
+  "python-jose[cryptography]>=3.3.0",
+  "passlib>=1.7.4",
+  "python-multipart>=0.0.9",
+  "redis>=5.0.0",
+  "rq>=1.16.0",
+  "pytest>=8.0.0"
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100

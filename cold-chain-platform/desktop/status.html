@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>生鲜物流协同优化系统</title>
+    <link rel="stylesheet" href="./status.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div class="brand">
+          <span class="logo">冷</span>
+          <div>
+            <h1>生鲜物流协同优化系统</h1>
+            <p>桌面版正在启动本地服务</p>
+          </div>
+        </div>
+        <div class="status-card">
+          <span class="dot" data-status-dot data-state="idle"></span>
+          <span data-status-text>准备启动</span>
+        </div>
+      </section>
+
+      <section class="actions" aria-label="启动操作">
+        <button data-start>启动/进入系统</button>
+        <button data-browser>在浏览器中打开</button>
+        <button data-stop class="secondary">停止本地服务</button>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>启动日志</h2>
+          <span data-root></span>
+        </div>
+        <pre data-log></pre>
+      </section>
+    </main>
+    <script src="./renderer.cjs"></script>
+  </body>
+</html>

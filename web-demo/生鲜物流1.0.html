@@ -1,0 +1,1904 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生鲜物流三维装箱 & 路径优化系统</title>
+<script defer src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+<style>
+  body{ background:#0f172a; color:#e2e8f0; }
+  .editable{ cursor:pointer; padding:2px 4px; border-radius:3px; }
+  .editable:hover{ background:#1e293b; }
+  .edit-input{ background:#1e293b; color:white; border:1px solid #3b82f6; border-radius:3px; width:100%; }
+  #map{ width:100%; height:440px; border-radius:8px; overflow:hidden; }
+  #packingCanvas{ width:100%; height:620px; border-radius:10px; background:#1e293b; }
+  .metric-card{ background:#1e293b; border:1px solid #334155; border-radius:8px; padding:16px; }
+  .metric-label{ color:#94a3b8; font-size:13px; }
+  .metric-value{ font-size:22px; font-weight:700; margin-top:4px; }
+  .route-card{ border:1px solid #334155; border-radius:8px; padding:12px; background:#0f172a; }
+  .route-dot{ width:10px; height:10px; border-radius:999px; display:inline-block; margin-right:6px; }
+  .table-soft th,.table-soft td{ padding:8px 10px; border-bottom:1px solid #334155; }
+  .field-label{ color:#94a3b8; font-size:13px; display:block; margin-bottom:4px; }
+  .field-input{ background:#1e293b; border:1px solid #334155; border-radius:6px; padding:8px 10px; width:100%; color:#e2e8f0; }
+  .modal-mask{ position:fixed; inset:0; background:rgba(2,6,23,.78); z-index:50; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal-mask.active{ display:flex; }
+  .modal-panel{ width:min(760px,100%); background:#0f172a; border:1px solid #334155; border-radius:12px; padding:22px; box-shadow:0 24px 80px rgba(0,0,0,.45); }
+  .spec-chip{ border:1px solid #334155; background:#0f172a; border-radius:8px; padding:10px; }
+  .spec-chip.active{ border-color:#3b82f6; background:#172554; }
+  .box-legend{ display:inline-flex; align-items:center; gap:6px; border:1px solid #334155; background:#0f172a; border-radius:999px; padding:5px 10px; margin:0 6px 6px 0; font-size:12px; }
+  .color-swatch{ width:12px; height:12px; border-radius:3px; display:inline-block; border:1px solid rgba(255,255,255,.35); }
+  .type-chip{ display:inline-flex; align-items:center; border:1px solid #475569; color:#cbd5e1; background:#111827; border-radius:999px; padding:4px 9px; margin:0 6px 6px 0; font-size:12px; }
+  .legend-title{ color:#93c5fd; font-size:12px; font-weight:700; margin:0 0 6px; }
+  .packing-showcase{ background:#1e293b; border-radius:12px; padding:28px; min-height:980px; }
+  .packing-showcase-title{ font-size:28px; line-height:1.25; font-weight:800; color:#f8fafc; }
+  .packing-showcase-subtitle{ color:#bfdbfe; font-size:18px; margin-top:18px; }
+  .packing-info-card{ background:#0f172a; border:1px solid #334155; border-radius:10px; padding:18px 20px; min-height:112px; }
+  .packing-info-card .label{ color:#93c5fd; font-size:17px; margin-bottom:12px; }
+  .packing-info-card .value{ color:#ffffff; font-size:22px; font-weight:800; line-height:1.35; }
+  .solution-card{ border:1px solid #334155; background:#0f172a; border-radius:8px; padding:12px; cursor:pointer; }
+  .solution-card.active{ border-color:#38bdf8; background:#082f49; }
+  .solution-card.invalid{ border-color:#ef4444; background:#450a0a; cursor:not-allowed; }
+  #constraintStatus{ display:none !important; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <h1 class="text-xl md:text-2xl font-bold mb-6 flex items-center">
+    <i class="fa fa-cubes text-blue-500 mr-2"></i>
+    生鲜物流 · 三维装箱 & 路径优化系统
+  </h1>
+
+  <div class="bg-slate-800 rounded-xl p-6 mb-6">
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
+      <div>
+        <h2 class="text-lg font-semibold">深度学习增强协同优化结果</h2>
+        <p class="text-sm text-slate-400 mt-1">MLP货损预测 + 遗传算法 + 2-opt + 装箱可行性检验</p>
+      </div>
+      <button id="runModel" class="px-4 py-2 bg-blue-500 rounded-lg text-sm">
+        <i class="fa fa-play mr-1"></i>运行并展示算法结果
+      </button>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div class="metric-card"><div class="metric-label">最终综合成本</div><div id="kpiCost" class="metric-value text-blue-300">-</div></div>
+      <div class="metric-card"><div class="metric-label">总里程</div><div id="kpiDistance" class="metric-value text-emerald-300">-</div></div>
+      <div class="metric-card"><div class="metric-label">总碳排放</div><div id="kpiCarbon" class="metric-value text-lime-300">-</div></div>
+      <div class="metric-card"><div class="metric-label">平均预测货损率</div><div id="kpiLoss" class="metric-value text-amber-300">-</div></div>
+      <div class="metric-card"><div class="metric-label">准时送达率</div><div id="kpiOntime" class="metric-value text-cyan-300">-</div></div>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap gap-3 mb-6">
+    <button id="tab1" class="px-4 py-2 bg-blue-600 rounded-lg">订单管理</button>
+    <button id="tab2" class="px-4 py-2 bg-slate-800 rounded-lg">三维装箱</button>
+    <button id="tab3" class="px-4 py-2 bg-slate-800 rounded-lg">路径优化 & QGIS</button>
+  </div>
+
+  <div id="panel1" class="block">
+    <div class="bg-slate-800 rounded-xl p-6">
+      <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+        <h2 class="text-lg font-semibold">配送订单列表（可编辑）</h2>
+        <div class="flex gap-2">
+          <button id="importOrder" class="px-3 py-1 bg-slate-700 rounded text-sm"><i class="fa fa-upload mr-1"></i>导入订单</button>
+          <button id="addOrder" class="px-3 py-1 bg-blue-500 rounded text-sm"><i class="fa fa-plus mr-1"></i>新增订单</button>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-5">
+        <h3 class="font-semibold mb-3">手动录入新订单</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
+          <div><label class="field-label">订单号</label><input id="formOrderNo" class="field-input" value="PEAR-NEW"></div>
+          <div><label class="field-label">发货地</label><input id="formOrigin" class="field-input" value="滁州冷链中心"></div>
+          <div><label class="field-label">收货地</label><input id="formDest" class="field-input" placeholder="输入客户/目的地"></div>
+          <div>
+            <label class="field-label">周转箱型号</label>
+            <select id="formBoxType" class="field-input">
+              <option value="LH-600-140">LH-600-140</option>
+              <option value="LH-600-220">LH-600-220</option>
+              <option value="LH-600-300">LH-600-300</option>
+              <option value="LH-600-340">LH-600-340</option>
+            </select>
+          </div>
+          <div><label class="field-label">周转箱数量</label><input id="formQty" class="field-input" type="number" value="12" min="1"></div>
+          <div><label class="field-label">单箱重量(kg)</label><input id="formWeight" class="field-input" type="number" value="12.6" min="1" step="0.1"></div>
+          <div><label class="field-label">起送时间</label><input id="formReadyTime" class="field-input" type="time" value="08:30"></div>
+          <div><label class="field-label">要求送达时间</label><input id="formDueTime" class="field-input" type="time" value="11:30"></div>
+          <input id="formLat" type="hidden" value="32.310">
+          <input id="formLng" type="hidden" value="118.320">
+          <div class="md:col-span-3 lg:col-span-3 flex items-end gap-2">
+            <button id="geocodeDest" class="px-4 py-2 bg-slate-700 rounded-lg text-sm"><i class="fa fa-location-arrow mr-1"></i>查询地点坐标</button>
+            <button id="submitManualOrder" class="px-4 py-2 bg-blue-500 rounded-lg text-sm"><i class="fa fa-check mr-1"></i>添加到订单列表</button>
+            <button id="syncOrdersToVisual" class="px-4 py-2 bg-emerald-500 rounded-lg text-sm"><i class="fa fa-refresh mr-1"></i>用当前订单刷新装箱/路径</button>
+          </div>
+          <div id="geocodeStatus" class="md:col-span-3 lg:col-span-6 text-xs text-slate-400"></div>
+        </div>
+      </div>
+
+      <div class="overflow-auto text-sm">
+        <table class="w-full" id="orderTable">
+          <thead>
+            <tr class="border-b border-slate-700 text-left">
+              <th>序号</th><th>订单号</th><th>发货地</th><th>收货地</th><th>生鲜包装长(cm)</th><th>宽(cm)</th><th>高(cm)</th><th>数量</th><th>箱型</th><th>单箱重量(kg)</th><th>起送时间</th><th>要求送达</th><th>实际抵达</th><th>状态</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="py-2 editable">1</td><td class="py-2 editable">SX2026040901</td><td class="py-2 editable">滁州冷链中心</td><td class="py-2 editable">琅琊区菜市场</td><td class="py-2 editable">30</td><td class="py-2 editable">20</td><td class="py-2 editable">15</td><td class="py-2 editable">12</td><td class="py-2 editable">LH-600-220</td><td class="py-2 editable">12.6</td><td class="py-2 editable">08:30</td><td class="py-2 editable">11:30</td><td class="py-2">-</td><td class="py-2 text-slate-400">待规划</td><td><button class="delRow text-red-400">删除</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel2" class="hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="bg-slate-800 rounded-xl p-6">
+        <h2 class="text-lg font-semibold mb-4">装箱参数</h2>
+        <div class="space-y-3 text-sm">
+          <div><label class="text-gray-400 block">查看车辆装箱方案</label><select id="vehicleSelect" class="bg-slate-700 rounded px-3 py-2 w-full"></select></div>
+          <div id="constraintStatus" class="bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-300">当前约束：时间窗为强约束，准时送达率必须为 100%；在此基础上选择综合成本最小方案。综合成本不包含订单迟到惩罚成本。</div>
+          <div><label class="text-gray-400 block">货车内部尺寸 (cm)</label><div class="grid grid-cols-3 gap-2"><input id="truckL" class="bg-slate-700 rounded px-2 py-1 w-full" value="408"><input id="truckW" class="bg-slate-700 rounded px-2 py-1 w-full" value="210"><input id="truckH" class="bg-slate-700 rounded px-2 py-1 w-full" value="210"></div></div>
+          <div class="grid grid-cols-2 gap-2"><div><label class="text-gray-400 block">额定载重(kg)</label><input id="truckLoadKg" class="bg-slate-700 rounded px-2 py-1 w-full" value="3380"></div><div><label class="text-gray-400 block">货厢容积(m³)</label><input id="truckVolumeM3" class="bg-slate-700 rounded px-2 py-1 w-full" value="18.14"></div></div>
+          <div><label class="text-gray-400 block">周转箱外尺寸 (cm)</label><select id="boxSpecSelect" class="bg-slate-700 rounded px-3 py-2 w-full mb-2"></select><div class="grid grid-cols-3 gap-2"><input id="boxL" class="bg-slate-700 rounded px-2 py-1 w-full" value="60"><input id="boxW" class="bg-slate-700 rounded px-2 py-1 w-full" value="40"><input id="boxH" class="bg-slate-700 rounded px-2 py-1 w-full" value="22"></div></div>
+          <div><label class="text-gray-400 block">生鲜包装尺寸 (cm)</label><div class="grid grid-cols-3 gap-2"><input id="itemL" class="bg-slate-700 rounded px-2 py-1 w-full" value="30"><input id="itemW" class="bg-slate-700 rounded px-2 py-1 w-full" value="20"><input id="itemH" class="bg-slate-700 rounded px-2 py-1 w-full" value="15"></div></div>
+          <div><label class="text-gray-400 block">包装总数量</label><input id="itemNum" class="bg-slate-700 rounded px-3 py-2 w-full" value="60"></div>
+          <button id="startPack" class="w-full bg-blue-500 py-2 rounded mt-2"><i class="fa fa-cube mr-1"></i>生成三维装箱方案</button>
+        </div>
+        <div class="mt-6 text-sm">
+          <p>周转箱用量：<span id="boxUse">0</span> 个</p><p>理论最大箱数：<span id="boxCapacity">0</span> 个</p><p>空间利用率：<span id="rate">0</span> %</p><p>载重利用率：<span id="weightRate">0</span> %</p><p>卸货顺序：<span id="unloadOrder">先到先卸，外侧优先</span></p><p>装载顺序：<span id="loadingOrder">-</span></p>
+        </div>
+        <div id="solutionOptions" class="hidden"></div>
+      </div>
+
+      <div class="lg:col-span-2 packing-showcase">
+        <div class="mb-6">
+          <h2 class="packing-showcase-title">三维装箱预览（BJ5045XLCPHEV2 + LH-600周转箱）</h2>
+          <div id="packingStats" class="packing-showcase-subtitle">LH-600-220主箱型 | 6排 × 5列 × 8层 = 240箱 | 单箱52个梨，约12.6kg | 车头预留150mm，车尾预留330mm</div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+          <div class="packing-info-card"><div class="label">验证载体</div><div class="value">BJ5045XLCPHEV2 插电式混合动力冷藏车</div></div>
+          <div class="packing-info-card"><div class="label">货厢内尺寸</div><div class="value">4080 × 2100 × 2100 mm</div></div>
+          <div class="packing-info-card"><div class="label">容积 / 额定载重</div><div class="value">18.14 m³ / 3380 kg</div></div>
+        </div>
+        <div id="packingCanvas"></div>
+        <div class="mt-4 bg-slate-900 border border-slate-700 rounded-lg p-4">
+          <div class="flex flex-wrap justify-between items-center gap-3"><div><div class="font-semibold">装箱顺序可视化</div><div id="packingStepText" class="text-sm text-slate-400 mt-1">拖动步骤条查看逐箱装载过程</div></div><button id="showFullPacking" class="px-3 py-2 bg-blue-500 rounded text-sm">显示完整装箱</button></div>
+          <input id="packingStep" type="range" min="1" max="1" value="1" class="w-full mt-3"><div id="boxLegend" class="mt-3"></div>
+        </div>
+        <div class="overflow-auto mt-4 text-sm"><table class="w-full table-soft"><thead><tr class="text-left text-slate-300"><th>车辆</th><th>服务路径</th><th>装载顺序</th><th>空间利用率</th><th>货损率</th></tr></thead><tbody id="packingResultBody"></tbody></table></div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4 text-sm">
+          <div class="overflow-auto bg-slate-900 border border-slate-700 rounded-lg p-3"><h3 class="font-semibold mb-2">订单运量与箱型组合</h3><table class="w-full table-soft"><thead><tr class="text-left text-slate-300"><th>订单/客户</th><th>运量</th><th>周转箱组合</th><th>总重</th></tr></thead><tbody id="orderPackingBody"></tbody></table></div>
+          <div class="overflow-auto bg-slate-900 border border-slate-700 rounded-lg p-3"><h3 class="font-semibold mb-2">逐箱摆放方案</h3><table class="w-full table-soft"><thead><tr class="text-left text-slate-300"><th>序号</th><th>箱型</th><th>客户</th><th>位置</th><th>摆放方向</th></tr></thead><tbody id="packingStepBody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel3" class="hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="bg-slate-800 rounded-xl p-6">
+        <h2 class="text-lg font-semibold mb-4">路径参数</h2>
+        <div class="space-y-3 text-sm">
+          <div><label class="text-gray-400">起点（物流中心）</label><input id="routeStart" class="w-full bg-slate-700 rounded px-3 py-2" value="滁州冷链中心"></div>
+          <div><label class="text-gray-400">途经点（按卸货顺序）</label><div id="wayList" class="space-y-2"><div class="flex gap-2"><input class="flex-1 bg-slate-700 rounded px-3 py-2" value="琅琊区菜市场"><button class="delWay px-2 bg-red-500 rounded">-</button></div></div><button id="addWay" class="w-full mt-1 bg-slate-700 py-1 rounded">+ 添加</button></div>
+          <div><label class="text-gray-400">终点</label><input id="routeEnd" class="w-full bg-slate-700 rounded px-3 py-2" value="滁州南站冷链站"></div>
+          <button id="genRoute" class="w-full bg-blue-500 py-2 rounded mt-2"><i class="fa fa-map-marker mr-1"></i>生成最优公路路径</button>
+          <button id="exportQGIS" class="w-full bg-emerald-500 py-2 rounded mt-2"><i class="fa fa-download mr-1"></i>导出QGIS点位文件</button>
+          <button id="saveMapImg" class="hidden w-full bg-green-600 py-2 rounded mt-2"><i class="fa fa-image mr-1"></i>保存地图图片</button>
+        </div>
+        <div class="mt-6 text-sm"><p>总里程：<span id="mileage">0</span> km</p><p>最终成本：<span id="routeCost">0</span></p><p>碳排放：<span id="routeCarbon">0</span> kg CO2e</p><p>行驶方式：高德地图驾车路径</p><p>卸货顺序与装箱顺序已匹配</p></div>
+        <div id="routeCards" class="mt-5 space-y-3 text-sm"></div>
+      </div>
+      <div class="lg:col-span-2 bg-slate-800 rounded-xl p-6">
+        <h2 class="text-lg font-semibold mb-4">公路路网路径地图（高德地图 & QGIS）</h2>
+        <div id="routeAlert" class="hidden mb-3 bg-red-950 border border-red-500 text-red-100 rounded-lg px-4 py-3 text-sm"></div>
+        <div id="map"></div>
+        <div class="overflow-auto mt-4 text-sm"><table class="w-full table-soft"><thead><tr class="text-left text-slate-300"><th>车辆</th><th>路径</th><th>距离(km)</th><th>成本</th><th>货损率</th><th>碳排放</th><th>实际抵达/状态</th></tr></thead><tbody id="routeResultBody"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="importModal" class="modal-mask">
+  <div class="modal-panel">
+    <div class="flex justify-between items-start gap-3 mb-4"><div><h2 class="text-lg font-semibold">导入订单</h2><p class="text-sm text-slate-400 mt-1">支持 .xlsx、.xls、.csv。表头可使用：订单号、发货地、收货地、数量、箱型、单箱重量、起送时间、要求送达时间；卸货顺序会按要求送达时间自动判断。</p></div><button id="closeImportModal" class="px-3 py-1 bg-slate-700 rounded">关闭</button></div>
+    <div class="border border-dashed border-slate-500 rounded-lg p-6 text-center bg-slate-900"><i class="fa fa-file-excel-o text-3xl text-emerald-300"></i><p class="mt-3 text-sm text-slate-300">选择 Excel 或 CSV 文件后会自动解析并追加到订单列表</p><input id="orderFileInput" type="file" accept=".xlsx,.xls,.csv" class="mt-4 text-sm"><div class="mt-4 flex flex-wrap justify-center gap-2"><button id="downloadTemplate" class="px-3 py-2 bg-slate-700 rounded text-sm"><i class="fa fa-download mr-1"></i>下载Excel模板</button><button id="clearOrders" class="px-3 py-2 bg-red-500 rounded text-sm"><i class="fa fa-trash mr-1"></i>清空当前订单</button></div></div>
+    <div id="importPreview" class="mt-4 text-sm text-slate-400"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+// ==================== 标签切换 ====================
+const tab1 = document.getElementById('tab1');
+const tab2 = document.getElementById('tab2');
+const tab3 = document.getElementById('tab3');
+const p1 = document.getElementById('panel1');
+const p2 = document.getElementById('panel2');
+const p3 = document.getElementById('panel3');
+
+const truckSpec = {
+  name: 'BJ5045XLCPHEV2 插电式混合动力冷藏车',
+  lengthCm: 408,
+  widthCm: 210,
+  heightCm: 210,
+  volumeM3: 18.14,
+  maxLoadKg: 3380,
+  frontBufferCm: 15,
+  rearBufferCm: 33
+};
+
+const boxSpecs = {
+  'LH-600-140': {code:'A', name:'LH-600-140 折叠周转箱', l:60, w:40, h:14, inner:'565x360x120mm', folded:'600x400x55mm', pearCapacity:26, grossWeight:6.7, supportMin:0.85, role:'精品梨、偏熟梨、尾箱和首站优先卸货', color:0x0f766e, hex:'#0f766e'},
+  'LH-600-220': {code:'B', name:'LH-600-220 折叠周转箱', l:60, w:40, h:22, inner:'565x365x210mm', folded:'600x400x55mm', pearCapacity:52, grossWeight:12.6, supportMin:0.85, role:'常规主箱型，保护性和效率均衡', color:0x16a34a, hex:'#16a34a'},
+  'LH-600-300': {code:'C', name:'LH-600-300 折叠周转箱', l:60, w:40, h:30, inner:'560x365x285mm', folded:'600x400x65mm', pearCapacity:78, grossWeight:18.5, supportMin:0.90, role:'硬度较好、单站数量较大、减少搬运次数', color:0x0891b2, hex:'#0891b2'},
+  'LH-600-340': {code:'D', name:'LH-600-340 折叠周转箱', l:60, w:40, h:34, inner:'560x365x325mm', folded:'600x400x65mm', pearCapacity:104, grossWeight:24.3, supportMin:0.95, role:'硬果、小果、短途整批；重点控制承压和重心', color:0x134e4a, hex:'#134e4a'}
+};
+
+const customerColorPalette = ['#60a5fa','#34d399','#fbbf24','#f472b6','#a78bfa','#22d3ee','#84cc16','#f97316','#38bdf8','#c084fc','#2dd4bf','#14b8a6'];
+
+function customerColorMap(vehicle){
+  const ids = [...new Set([...(vehicle.route || []),...(vehicle.packingOrder || [])])];
+  return new Map(ids.map(id=>[id,customerColorFor(id)]));
+}
+
+function customerColorFor(vehicleOrCustomerId,maybeCustomerId){
+  const customerId = maybeCustomerId ?? vehicleOrCustomerId;
+  const index = Math.max(0,(Number(customerId) || 1) - 1);
+  return customerColorPalette[index % customerColorPalette.length];
+}
+
+const optimizedResult = {
+  summary: {
+    totalCost: 3596.97,
+    totalDistance: 385.74,
+    totalCarbon: 361.19,
+    avgLossRate: 0.0688,
+    onTimeRate: 0.6667,
+    mlpR2: 0.8489
+  },
+  depot: {id: 0, name: '滁州冷链中心', lat: 32.31, lng: 118.30},
+  nodes: {
+    1:{name:'南谯区商超',lat:32.265,lng:118.296},
+    2:{name:'琅琊区菜市场',lat:32.322,lng:118.337},
+    3:{name:'城北社区店',lat:32.355,lng:118.286},
+    4:{name:'乌衣镇配送点',lat:32.214,lng:118.332},
+    5:{name:'城南农贸点',lat:32.257,lng:118.356},
+    6:{name:'会峰路门店',lat:32.318,lng:118.333},
+    7:{name:'龙蟠社区点',lat:32.289,lng:118.302},
+    8:{name:'苏滁产业园点',lat:32.348,lng:118.402},
+    9:{name:'明光路生鲜点',lat:32.333,lng:118.315},
+    10:{name:'凤凰路门店',lat:32.326,lng:118.326},
+    11:{name:'清流路商超',lat:32.315,lng:118.345},
+    12:{name:'腰铺镇配送点',lat:32.236,lng:118.276},
+    13:{name:'丰乐大道门店',lat:32.316,lng:118.319},
+    14:{name:'滁州南站冷链站',lat:32.243,lng:118.296},
+    15:{name:'政务新区商超',lat:32.282,lng:118.318},
+    16:{name:'沙河镇配送点',lat:32.392,lng:118.245},
+    17:{name:'全椒路门店',lat:32.298,lng:118.275},
+    18:{name:'开发区团购点',lat:32.306,lng:118.382}
+  },
+  vehicles: [
+    {id:1, route:[9,11,10,6,13,2], packingOrder:[2,13,6,10,11,9], distance:98.1, cost:1006.94, carbon:92.5, lossRate:0.0703, boxCount:82, loadDensity:0.79, boxType:'MIXED', singleBoxWeight:12.6, color:'#3b82f6', allocations:{
+      9:[{type:'LH-600-140',count:8},{type:'LH-600-220',count:5}],
+      11:[{type:'LH-600-140',count:7},{type:'LH-600-220',count:5}],
+      10:[{type:'LH-600-220',count:9},{type:'LH-600-300',count:4}],
+      6:[{type:'LH-600-300',count:10},{type:'LH-600-340',count:3}],
+      13:[{type:'LH-600-300',count:8},{type:'LH-600-340',count:4}],
+      2:[{type:'LH-600-340',count:11},{type:'LH-600-140',count:8}]
+    }},
+    {id:2, route:[3,17,7,18,8], packingOrder:[8,18,7,17,3], distance:90.2, cost:883.51, carbon:84.6, lossRate:0.0728, boxCount:69, loadDensity:0.67, boxType:'MIXED', singleBoxWeight:12.6, color:'#10b981', allocations:{
+      3:[{type:'LH-600-140',count:7},{type:'LH-600-220',count:6}],
+      17:[{type:'LH-600-220',count:8},{type:'LH-600-300',count:4}],
+      7:[{type:'LH-600-220',count:9},{type:'LH-600-300',count:5}],
+      18:[{type:'LH-600-300',count:10},{type:'LH-600-340',count:4}],
+      8:[{type:'LH-600-300',count:9},{type:'LH-600-340',count:7}]
+    }},
+    {id:3, route:[16,12,4,15], packingOrder:[15,4,12,16], distance:123.0, cost:970.63, carbon:113.4, lossRate:0.0681, boxCount:76, loadDensity:0.73, boxType:'MIXED', singleBoxWeight:12.6, color:'#f59e0b', allocations:{
+      16:[{type:'LH-600-140',count:8},{type:'LH-600-220',count:7},{type:'LH-600-300',count:4}],
+      12:[{type:'LH-600-220',count:9},{type:'LH-600-300',count:8}],
+      4:[{type:'LH-600-300',count:10},{type:'LH-600-340',count:8}],
+      15:[{type:'LH-600-300',count:11},{type:'LH-600-340',count:11}]
+    }},
+    {id:4, route:[5,1,14], packingOrder:[14,1,5], distance:74.4, cost:735.89, carbon:70.7, lossRate:0.0605, boxCount:52, loadDensity:0.50, boxType:'MIXED', singleBoxWeight:12.6, color:'#a855f7', allocations:{
+      5:[{type:'LH-600-140',count:9},{type:'LH-600-220',count:6}],
+      1:[{type:'LH-600-220',count:10},{type:'LH-600-300',count:7}],
+      14:[{type:'LH-600-300',count:11},{type:'LH-600-340',count:9}]
+    }}
+  ]
+};
+
+function showPanel(p){
+  p1.classList.add('hidden');
+  p2.classList.add('hidden');
+  p3.classList.add('hidden');
+  p.classList.remove('hidden');
+}
+function setActiveTab(activeTab){
+  [tab1,tab2,tab3].forEach(tab=>{
+    tab.classList.remove('bg-blue-600');
+    tab.classList.add('bg-slate-800');
+  });
+  activeTab.classList.remove('bg-slate-800');
+  activeTab.classList.add('bg-blue-600');
+}
+tab1.onclick = ()=>{ showPanel(p1); setActiveTab(tab1); }
+tab2.onclick = ()=>{ showPanel(p2); setActiveTab(tab2); setTimeout(resizePackingCanvas,100); }
+tab3.onclick = ()=>{ showPanel(p3); setActiveTab(tab3); setTimeout(()=>{ if(map && map.resize) map.resize(); },100); }
+
+function fmtMoney(v){ return '¥' + Number(v).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtPct(v){ return (v*100).toFixed(2) + '%'; }
+function nodeName(id){ return optimizedResult.nodes[id]?.name || ('客户' + id); }
+function routeText(route){ return '中心 → ' + route.map(nodeName).join(' → ') + ' → 中心'; }
+function timeToMinutes(t){ const [h,m]=(t || '08:00').split(':').map(Number); return h*60+(m||0); }
+function minutesToTime(total){ const h=Math.floor(total/60)%24; const m=Math.round(total%60); return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
+function compareOrdersByArrival(a,b){
+  return timeToMinutes(a.dueTime) - timeToMinutes(b.dueTime) || (a.index || 0) - (b.index || 0);
+}
+function distKm(a,b){ return Math.hypot((a.lat-b.lat)*111, (a.lng-b.lng)*95); }
+function recomputeVehicleCost(vehicle,distanceKm){
+  const volumeRate = vehicle.totalVolume / truckSpec.volumeM3;
+  const weightRate = vehicle.totalWeight / truckSpec.maxLoadKg;
+  const travelHours = distanceKm / 42;
+  const refrigerationEnergy = travelHours * (4.8 + volumeRate * 1.6 + vehicle.route.length * 0.35);
+  vehicle.distance = distanceKm;
+  vehicle.cost = 360 + distanceKm * (2.8 + weightRate * 0.55) + refrigerationEnergy * 1.15 + vehicle.boxCount * 2.6 + vehicle.route.length * 18;
+  vehicle.carbon = distanceKm * (0.72 + weightRate * 0.10) + refrigerationEnergy * 0.45;
+}
+async function fetchRoadSegment(from,to){
+  try{
+    await ensureAmapReady();
+    return await new Promise((resolve,reject)=>{
+      AMap.plugin('AMap.Driving',()=>{
+        const driving = new AMap.Driving({policy:AMap.DrivingPolicy.LEAST_TIME});
+        driving.search(
+          new AMap.LngLat(from.lng,from.lat),
+          new AMap.LngLat(to.lng,to.lat),
+          (status,result)=>{
+            const route = result?.routes?.[0];
+            if(status === 'complete' && route){
+              const points = [];
+              route.steps.forEach(step=>{
+                (step.path || []).forEach(p=>points.push([p.lng,p.lat]));
+              });
+              resolve({
+                points: points.length ? points : [[from.lng,from.lat],[to.lng,to.lat]],
+                distanceKm: route.distance / 1000,
+                durationMin: route.time / 60,
+                source: 'amap'
+              });
+            }else{
+              reject(new Error('高德路径规划失败'));
+            }
+          }
+        );
+      });
+    });
+  }catch(err){}
+  const fallback = distKm(from,to) * 1.28;
+  return {
+    points: [[from.lng,from.lat],[to.lng,to.lat]],
+    distanceKm: fallback,
+    durationMin: fallback / 42 * 60,
+    source: 'fallback'
+  };
+}
+function getBoxSpec(type){ return boxSpecs[type] || boxSpecs['LH-600-220']; }
+function boxCapacity(spec){
+  return Math.floor(truckSpec.lengthCm/spec.l) * Math.floor(truckSpec.widthCm/spec.w) * Math.floor(truckSpec.heightCm/spec.h);
+}
+function setFieldValue(id,value){ const el=document.getElementById(id); if(el) el.value=value; }
+function boxTypeCode(type){ return getBoxSpec(type).code || type.replace('LH-600-',''); }
+function boxTypeLabel(type){ return `${boxTypeCode(type)}-${type.replace('LH-600-','')}型`; }
+function allocationText(items){
+  return items.map(item=>`${boxTypeLabel(item.type)}×${item.count}`).join('，');
+}
+
+function splitOrderIntoBoxMix(order,index){
+  const primary = order.boxType && boxSpecs[order.boxType] ? order.boxType : 'LH-600-220';
+  const qty = Math.max(1, Number(order.qty || 1));
+  return [{type:primary,count:qty}];
+}
+
+function orderBoxVolumeM3(order){
+  const alloc = splitOrderIntoBoxMix(order,order.index || 0);
+  return alloc.reduce((sum,item)=>{
+    const spec = getBoxSpec(item.type);
+    return sum + item.count * spec.l * spec.w * spec.h / 1000000;
+  },0);
+}
+
+function orderWeightKg(order){
+  const spec = getBoxSpec(order.boxType || 'LH-600-220');
+  return Number(order.qty || 0) * Number(order.weight || spec.grossWeight || 12.6);
+}
+
+function orderBoxCount(order){
+  return Number(order.qty || 0);
+}
+
+function mixedCapacityBoxes(){
+  return packingGrid().rows * packingGrid().cols * packingGrid().levels;
+}
+
+function packingGrid(spec = getBoxSpec('LH-600-220')){
+  return {
+    rows: Math.floor((truckSpec.lengthCm - truckSpec.frontBufferCm - truckSpec.rearBufferCm) / spec.l),
+    cols: Math.floor(truckSpec.widthCm / spec.w),
+    levels: Math.floor(truckSpec.heightCm / spec.h),
+    frontBufferCm: truckSpec.frontBufferCm,
+    rearBufferCm: truckSpec.rearBufferCm,
+    sideBufferCm: Math.max(0, truckSpec.widthCm - Math.floor(truckSpec.widthCm / spec.w) * spec.w) / 2,
+    topBufferCm: Math.max(0, truckSpec.heightCm - Math.floor(truckSpec.heightCm / spec.h) * spec.h)
+  };
+}
+
+function balancedColumns(count){
+  const patterns = {
+    1:[3],
+    2:[2,4],
+    3:[2,3,4],
+    4:[1,2,4,5],
+    5:[1,2,3,4,5]
+  };
+  return patterns[count] || patterns[5];
+}
+
+function targetLayerPlan(totalBoxes){
+  const grid = packingGrid();
+  const layerCount = (rows,minLevel,maxLevel)=>Math.max(minLevel,Math.min(maxLevel,Math.ceil(totalBoxes / (rows * grid.cols))));
+  if(totalBoxes >= grid.rows * grid.cols * grid.levels) return {rows:grid.rows, cols:grid.cols, levels:grid.levels, mode:'满载装载'};
+  if(totalBoxes <= 40){
+    const rows = Math.min(4,grid.rows);
+    return {rows, cols:grid.cols, levels:layerCount(rows,1,2), mode:'少量低层装载'};
+  }
+  if(totalBoxes <= 80){
+    const rows = Math.min(4,grid.rows);
+    return {rows, cols:grid.cols, levels:layerCount(rows,3,4), mode:'前段低层装载'};
+  }
+  if(totalBoxes <= 120){
+    const rows = Math.min(5,grid.rows);
+    return {rows, cols:grid.cols, levels:layerCount(rows,4,5), mode:'前中段稳定堆叠'};
+  }
+  if(totalBoxes <= 160) return {rows:grid.rows, cols:grid.cols, levels:layerCount(grid.rows,5,6), mode:'全长中层堆叠'};
+  if(totalBoxes <= 200) return {rows:grid.rows, cols:grid.cols, levels:layerCount(grid.rows,6,7), mode:'近满载尾部固定'};
+  return {rows:grid.rows, cols:grid.cols, levels:grid.levels, mode:'满载装载'};
+}
+
+function buildVehicleFromOrders(group,id,color){
+  const route = group.map(o=>o.id);
+  const allocations = {};
+  group.forEach((o,idx)=>{ allocations[o.id] = splitOrderIntoBoxMix(o,idx); });
+  const boxCount = group.reduce((sum,o)=>sum+orderBoxCount(o),0);
+  const totalWeight = group.reduce((sum,o)=>sum+orderWeightKg(o),0);
+  const totalVolume = group.reduce((sum,o)=>sum+orderBoxVolumeM3(o),0);
+  const pathPoints = [{lat:optimizedResult.depot.lat,lng:optimizedResult.depot.lng},...group.map(o=>({lat:o.lat,lng:o.lng})),{lat:optimizedResult.depot.lat,lng:optimizedResult.depot.lng}];
+  const straightDistance = pathPoints.slice(1).reduce((sum,p,i)=>sum+distKm(pathPoints[i],p),0);
+  const distance = straightDistance * 1.28;
+  const volumeRate = totalVolume / truckSpec.volumeM3;
+  const weightRate = totalWeight / truckSpec.maxLoadKg;
+  const travelHours = distance / 42;
+  const refrigerationEnergy = travelHours * (4.8 + volumeRate * 1.6 + route.length * 0.35);
+  const fixedVehicleCost = 360;
+  const travelCost = distance * (2.8 + weightRate * 0.55);
+  const coolingCost = refrigerationEnergy * 1.15;
+  const handlingCost = boxCount * 2.6 + route.length * 18;
+  const carbon = distance * (0.72 + weightRate * 0.10) + refrigerationEnergy * 0.45;
+  return {
+    id,
+    route,
+    packingOrder:[...route].reverse(),
+    distance,
+    cost:fixedVehicleCost + travelCost + coolingCost + handlingCost,
+    carbon,
+    lossRate:0.052 + route.length * 0.0015 + Math.min(1,volumeRate) * 0.012,
+    boxCount,
+    loadDensity:Math.min(1,volumeRate),
+    boxType:'MIXED',
+    singleBoxWeight:group[0]?.weight || getBoxSpec(group[0]?.boxType || 'LH-600-220').grossWeight || 12.6,
+    totalWeight,
+    totalVolume,
+    allocations,
+    color
+  };
+}
+
+function splitOrdersByConstraints(orders,vehicleLimit){
+  const capacityBoxes = mixedCapacityBoxes();
+  const groups = [];
+  let current = [];
+  let weight = 0;
+  let volume = 0;
+  let boxes = 0;
+  for(const order of orders){
+    const ow = orderWeightKg(order);
+    const ov = orderBoxVolumeM3(order);
+    const ob = orderBoxCount(order);
+    if(ow > truckSpec.maxLoadKg || ov > truckSpec.volumeM3 || ob > capacityBoxes){
+      return {valid:false,reason:`订单 ${order.orderNo} 超出单车载重、容积或周转箱数量限制。`,vehicles:[]};
+    }
+    const exceeds = current.length && (
+      weight + ow > truckSpec.maxLoadKg ||
+      volume + ov > truckSpec.volumeM3 ||
+      boxes + ob > capacityBoxes
+    );
+    if(exceeds){
+      groups.push(current);
+      current = [];
+      weight = 0;
+      volume = 0;
+      boxes = 0;
+    }
+    current.push(order);
+    weight += ow;
+    volume += ov;
+    boxes += ob;
+  }
+  if(current.length) groups.push(current);
+  if(groups.length > vehicleLimit){
+    return {valid:false,reason:`至少需要 ${groups.length} 辆车；当前车辆上限为 ${vehicleLimit} 辆。`,vehicles:[]};
+  }
+  const colors = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ef4444','#06b6d4'];
+  return {valid:true,reason:'满足单车最大载重、最大体积和箱数约束。',vehicles:groups.map((g,i)=>buildVehicleFromOrders(g,i+1,colors[i%colors.length]))};
+}
+
+function splitOrdersBalanced(orders,vehicleCount){
+  const capacityBoxes = mixedCapacityBoxes();
+  const groups = Array.from({length:vehicleCount},()=>[]);
+  const loads = Array.from({length:vehicleCount},()=>({weight:0,volume:0,boxes:0}));
+  const sorted = [...orders].sort((a,b)=>(orderWeightKg(b)+orderBoxVolumeM3(b)*120)-(orderWeightKg(a)+orderBoxVolumeM3(a)*120));
+  const totalScore = sorted.reduce((sum,o)=>sum+orderWeightKg(o)/truckSpec.maxLoadKg+orderBoxVolumeM3(o)/truckSpec.volumeM3,0);
+  const targetScore = totalScore / vehicleCount;
+  for(const order of sorted){
+    const ow = orderWeightKg(order);
+    const ov = orderBoxVolumeM3(order);
+    const ob = orderBoxCount(order);
+    let best = -1;
+    let bestScore = Infinity;
+    loads.forEach((load,idx)=>{
+      const ok = load.weight+ow<=truckSpec.maxLoadKg && load.volume+ov<=truckSpec.volumeM3 && load.boxes+ob<=capacityBoxes;
+      if(!ok) return;
+      const score = Math.abs(((load.weight+ow)/truckSpec.maxLoadKg + (load.volume+ov)/truckSpec.volumeM3) - targetScore) + load.boxes/capacityBoxes*0.15;
+      if(score < bestScore){ bestScore = score; best = idx; }
+    });
+    if(best < 0) return {valid:false,reason:`${vehicleCount} 辆车无法在当前约束内均衡承载这些订单。`,vehicles:[]};
+    groups[best].push(order);
+    loads[best].weight += ow;
+    loads[best].volume += ov;
+    loads[best].boxes += ob;
+  }
+  const nonEmpty = groups.filter(g=>g.length).map(g=>g.sort(compareOrdersByArrival));
+  const colors = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ef4444','#06b6d4'];
+  return {valid:true,reason:'均衡分配后满足载重和体积约束。',vehicles:nonEmpty.map((g,i)=>buildVehicleFromOrders(g,i+1,colors[i%colors.length]))};
+}
+
+function splitOrdersByTimeWindow(orders,vehicleCount){
+  const sorted = [...orders].sort((a,b)=>timeToMinutes(a.dueTime)-timeToMinutes(b.dueTime));
+  const groups = Array.from({length:vehicleCount},()=>[]);
+  sorted.forEach((order,idx)=>groups[idx % vehicleCount].push(order));
+  const colors = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ef4444','#06b6d4'];
+  const vehicles = groups.filter(g=>g.length).map((g,i)=>buildVehicleFromOrders(g.sort(compareOrdersByArrival),i+1,colors[i%colors.length]));
+  const ok = vehicles.every(v=>v.totalWeight<=truckSpec.maxLoadKg && v.totalVolume<=truckSpec.volumeM3 && v.boxCount<=mixedCapacityBoxes());
+  return ok ? {valid:true,reason:'按要求送达时间分车后满足车辆约束。',vehicles} : {valid:false,reason:`${vehicleCount} 辆车按时间窗分车后仍超过载重或体积限制。`,vehicles:[]};
+}
+
+function solutionSignature(solution){
+  if(!solution.valid) return `invalid-${solution.limit}-${solution.reason}`;
+  return solution.vehicles.map(v=>v.route.join('-')).sort().join('|');
+}
+
+function summarizeSolution(limit,result,mode){
+  if(!result.valid) return {limit,mode,valid:false,vehicles:[],reason:result.reason};
+  let totalOrders = 0;
+  let onTimeOrders = 0;
+  let totalTardinessMinutes = 0;
+  result.vehicles.forEach(vehicle=>{
+    computeVehicleSchedule(vehicle);
+    totalTardinessMinutes += vehicle.totalTardinessMinutes || 0;
+    vehicle.route.forEach(cid=>{
+      totalOrders++;
+      if(vehicle.statuses?.[cid] !== '迟到') onTimeOrders++;
+    });
+  });
+  const totalCost = result.vehicles.reduce((sum,v)=>sum+v.cost,0);
+  const totalDistance = result.vehicles.reduce((sum,v)=>sum+v.distance,0);
+  const totalCarbon = result.vehicles.reduce((sum,v)=>sum+v.carbon,0);
+  const avgLoss = result.vehicles.reduce((sum,v)=>sum+v.lossRate*v.route.length,0) / Math.max(1,result.vehicles.reduce((sum,v)=>sum+v.route.length,0));
+  const onTimeRate = totalOrders ? onTimeOrders / totalOrders : 1;
+  return {
+    limit,
+    mode,
+    valid:true,
+    timeFeasible:onTimeRate === 1,
+    vehicles:result.vehicles,
+    totalCost,
+    totalDistance,
+    totalCarbon,
+    avgLoss,
+    onTimeRate,
+    totalTardinessMinutes,
+    lateOrders:totalOrders - onTimeOrders,
+    reason:result.reason
+  };
+}
+
+function generateConstrainedSolutions(orders,maxVehicles){
+  const solutions = [];
+  for(let limit=1; limit<=maxVehicles; limit++){
+    solutions.push(summarizeSolution(limit,splitOrdersByConstraints(orders,limit),'紧凑装车'));
+    if(limit > 1){
+      solutions.push(summarizeSolution(limit,splitOrdersBalanced(orders,limit),'均衡装车'));
+      solutions.push(summarizeSolution(limit,splitOrdersByTimeWindow(orders,limit),'按时间窗分车'));
+    }
+  }
+  const seen = new Set();
+  return solutions.filter(s=>{
+    const sig = solutionSignature(s);
+    if(seen.has(sig)) return false;
+    seen.add(sig);
+    return true;
+  });
+}
+
+function applySolution(solution){
+  if(!solution || !solution.valid) return;
+  optimizedResult.vehicles = solution.vehicles;
+  optimizedResult.summary.totalDistance = solution.totalDistance;
+  optimizedResult.summary.totalCost = solution.totalCost;
+  optimizedResult.summary.totalCarbon = solution.totalCarbon;
+  optimizedResult.summary.avgLossRate = solution.avgLoss;
+  optimizedResult.summary.totalTardinessMinutes = solution.totalTardinessMinutes || 0;
+  recalcOnTimeRate();
+  setupVehicleSelect();
+  refreshOverview();
+  renderResultTables();
+  renderPackingForVehicle(optimizedResult.vehicles[0].id);
+  renderOptimizedRoutes();
+  updateOrderActualTimes();
+}
+
+function solutionSummaryLine(solution){
+  return `成本 ${fmtMoney(solution.totalCost)} | 里程 ${solution.totalDistance.toFixed(1)}km | 碳排放 ${solution.totalCarbon.toFixed(1)}kg | 准时率 ${fmtPct(solution.onTimeRate ?? 0)} | 总迟到 ${Math.round(solution.totalTardinessMinutes || 0)}分钟`;
+}
+
+function renderSolutionCard(title,solution,active=false){
+  const tone = solution.timeFeasible ? 'text-emerald-300' : 'text-amber-300';
+  const status = solution.timeFeasible ? '时间窗强约束已满足，准时送达率 100%。' : `无法 100% 准时；迟到订单 ${solution.lateOrders} 个，总迟到 ${Math.round(solution.totalTardinessMinutes || 0)} 分钟。`;
+  return `
+    <div class="solution-card ${active ? 'active' : ''}">
+      <div class="font-semibold">${title}：${solution.mode}，${solution.vehicles.length} 辆车</div>
+      <div class="text-slate-400 mt-1">${solutionSummaryLine(solution)}</div>
+      <div class="${tone} mt-1">${status}</div>
+    </div>
+  `;
+}
+
+function renderSolutionOptions(solutions,selectedIndex,alternatives=[]){
+  const box = document.getElementById('solutionOptions');
+  const best = solutions[selectedIndex];
+  if(!best || !best.valid){
+    box.innerHTML = '';
+    return;
+  }
+  const primaryTitle = best.timeFeasible ? '100%准时成本最小方案' : '准时率最高方案';
+  const cards = [renderSolutionCard(primaryTitle,best,true)]
+    .concat(alternatives.filter(item=>item.solution && item.solution !== best).map(item=>renderSolutionCard(item.title,item.solution,false)))
+    .join('');
+  box.innerHTML = `
+    <div class="font-semibold text-slate-200">时间窗强约束方案</div>
+    ${cards}
+  `;
+}
+
+function buildPackingUnits(vehicle){
+  const units = [];
+  const allocations = vehicle.allocations || {};
+  const loadSequence = vehicle.packingOrder && vehicle.packingOrder.length ? vehicle.packingOrder : [...vehicle.route].reverse();
+  loadSequence.forEach(customerId=>{
+    const items = allocations[customerId] || [{type:vehicle.boxType === 'MIXED' ? 'LH-600-220' : (vehicle.boxType || 'LH-600-220'), count:Math.ceil(vehicle.boxCount / Math.max(1, vehicle.route.length))}];
+    items.forEach(item=>{
+      for(let i=0;i<item.count;i++){
+        units.push({
+          customerId,
+          customerName: nodeName(customerId),
+          type:item.type,
+          spec:getBoxSpec(item.type)
+        });
+      }
+    });
+  });
+  return units;
+}
+
+function buildPackingPlan(vehicle, visibleCount){
+  const units = buildPackingUnits(vehicle);
+  const mainSpec = getBoxSpec('LH-600-220');
+  const grid = packingGrid(mainSpec);
+  const cols = grid.cols;
+  const rows = grid.rows;
+  const levels = grid.levels;
+  const capacity = rows * cols * levels;
+  const count = Math.min(units.length, capacity, visibleCount ?? units.length);
+  const target = targetLayerPlan(units.length);
+  const perRowCapacity = cols * target.levels;
+  const plan = [];
+  for(let i=0;i<count;i++){
+    const rowIndex = Math.min(rows - 1, Math.floor(i / perRowCapacity));
+    const withinRow = i - rowIndex * perRowCapacity;
+    const level = Math.floor(withinRow / cols);
+    const usedInLayer = Math.min(cols, count - rowIndex * perRowCapacity - level * cols);
+    const colOrder = balancedColumns(usedInLayer);
+    const colNumber = colOrder[withinRow % cols] || ((withinRow % cols) + 1);
+    const unit = units[i];
+    const xCm = -truckSpec.lengthCm/2 + grid.frontBufferCm + mainSpec.l/2 + rowIndex*mainSpec.l;
+    const yCm = -truckSpec.heightCm/2 + unit.spec.h/2 + level*mainSpec.h;
+    const zCm = -truckSpec.widthCm/2 + grid.sideBufferCm + mainSpec.w/2 + (colNumber-1)*mainSpec.w;
+    plan.push({
+      ...unit,
+      seq:i+1,
+      level:level+1,
+      col:colNumber,
+      row:rowIndex+1,
+      rowCode:`R${rowIndex+1}`,
+      colCode:`C${colNumber}`,
+      levelCode:`H${level+1}`,
+      xCm,
+      yCm,
+      zCm
+    });
+  }
+  return {units, plan, cols, rows, levels, capacity, maxHeight:mainSpec.h, grid, target};
+}
+
+const localGeocodeBook = {
+  '滁州冷链中心':[32.310,118.300],
+  '琅琊区菜市场':[32.322,118.337],
+  '南谯区商超':[32.265,118.296],
+  '城北社区店':[32.355,118.286],
+  '乌衣镇配送点':[32.214,118.332],
+  '城南农贸点':[32.257,118.356],
+  '会峰路门店':[32.318,118.333],
+  '龙蟠社区点':[32.289,118.302],
+  '苏滁产业园点':[32.348,118.402],
+  '明光路生鲜点':[32.333,118.315],
+  '凤凰路门店':[32.326,118.326],
+  '清流路商超':[32.315,118.345],
+  '腰铺镇配送点':[32.236,118.276],
+  '滁州南站冷链站':[32.243,118.296],
+  '政务新区商超':[32.282,118.318],
+  '沙河镇配送点':[32.392,118.245],
+  '全椒路门店':[32.298,118.275],
+  '开发区团购点':[32.306,118.382]
+};
+
+function localGeocode(place){
+  const key = Object.keys(localGeocodeBook).find(name=>place.includes(name) || name.includes(place));
+  if(key){
+    const [lat,lng] = localGeocodeBook[key];
+    return {lat,lng,source:'本地地点库'};
+  }
+  return null;
+}
+
+async function geocodePlace(place){
+  const local = localGeocode(place);
+  if(local) return local;
+  await ensureAmapReady();
+  return new Promise((resolve,reject)=>{
+    AMap.plugin('AMap.Geocoder',()=>{
+      const geocoder = new AMap.Geocoder({city:'全国'});
+      geocoder.getLocation(place,(status,result)=>{
+        const geocode = result?.geocodes?.[0];
+        if(status === 'complete' && geocode?.location){
+          resolve({lat:geocode.location.lat, lng:geocode.location.lng, source:'高德地图'});
+        }else{
+          reject(new Error('高德地图未查询到该地点，请换一个更具体的名称。'));
+        }
+      });
+    });
+  });
+}
+
+function computeVehicleSchedule(vehicle){
+  if(vehicle.roadSchedule){
+    const tardinessMinutes = {};
+    let totalTardinessMinutes = 0;
+    vehicle.route.forEach(cid=>{
+      const node = optimizedResult.nodes[cid];
+      const arrival = timeToMinutes(vehicle.arrivals?.[cid] || '00:00');
+      const due = timeToMinutes(node?.dueTime || '18:00');
+      const late = Math.max(0,arrival - due);
+      tardinessMinutes[cid] = late;
+      totalTardinessMinutes += late;
+    });
+    vehicle.tardinessMinutes = tardinessMinutes;
+    vehicle.totalTardinessMinutes = totalTardinessMinutes;
+    return vehicle;
+  }
+  const arrivals = {};
+  const statuses = {};
+  const lateFlags = {};
+  const tardinessMinutes = {};
+  let totalTardinessMinutes = 0;
+  let current = {...optimizedResult.depot};
+  let clock = timeToMinutes('08:00');
+  let lateStarted = false;
+  vehicle.route.forEach((cid,index)=>{
+    const node = optimizedResult.nodes[cid];
+    const travel = Math.max(8, distKm(current,node)/42*60);
+    const service = 10;
+    clock += travel;
+    const ready = timeToMinutes(node.readyTime || '08:00');
+    if(clock < ready) clock = ready;
+    const arrival = minutesToTime(clock);
+    const due = timeToMinutes(node.dueTime || '18:00');
+    const isLate = clock > due;
+    const late = Math.max(0,clock - due);
+    if(isLate) lateStarted = true;
+    arrivals[cid] = arrival;
+    statuses[cid] = isLate ? '迟到' : '准时';
+    lateFlags[cid] = lateStarted;
+    tardinessMinutes[cid] = late;
+    totalTardinessMinutes += late;
+    clock += service;
+    current = node;
+  });
+  vehicle.arrivals = arrivals;
+  vehicle.statuses = statuses;
+  vehicle.lateFlags = lateFlags;
+  vehicle.tardinessMinutes = tardinessMinutes;
+  vehicle.totalTardinessMinutes = totalTardinessMinutes;
+  return vehicle;
+}
+
+function updateOrderActualTimes(){
+  const orderRows = [...document.querySelectorAll('#orderTable tbody tr')];
+  const byName = {};
+  optimizedResult.vehicles.forEach(vehicle=>{
+    computeVehicleSchedule(vehicle);
+    vehicle.route.forEach(cid=>{
+      byName[nodeName(cid)] = {
+        actual:vehicle.arrivals[cid],
+        status:vehicle.statuses[cid]
+      };
+    });
+  });
+  orderRows.forEach(tr=>{
+    const dest = tr.children[3].innerText.trim();
+    const result = byName[dest];
+    if(result){
+      tr.children[12].innerText = result.actual;
+      tr.children[13].innerText = result.status;
+      tr.children[13].className = result.status === '迟到' ? 'py-2 text-red-300 font-semibold' : 'py-2 text-emerald-300 font-semibold';
+    }
+  });
+}
+
+function recalcOnTimeRate(){
+  let total = 0;
+  let onTime = 0;
+  optimizedResult.vehicles.forEach(vehicle=>{
+    computeVehicleSchedule(vehicle);
+    vehicle.route.forEach(cid=>{
+      total++;
+      if(vehicle.statuses?.[cid] !== '迟到') onTime++;
+    });
+  });
+  optimizedResult.summary.onTimeRate = total ? onTime / total : 1;
+  document.getElementById('kpiOntime').innerText = fmtPct(optimizedResult.summary.onTimeRate);
+  return optimizedResult.summary.onTimeRate;
+}
+
+function refreshOverview(){
+  recalcOnTimeRate();
+  document.getElementById('kpiCost').innerText = fmtMoney(optimizedResult.summary.totalCost);
+  document.getElementById('kpiDistance').innerText = optimizedResult.summary.totalDistance.toFixed(2) + ' km';
+  document.getElementById('kpiCarbon').innerText = optimizedResult.summary.totalCarbon.toFixed(2) + ' kg';
+  document.getElementById('kpiLoss').innerText = fmtPct(optimizedResult.summary.avgLossRate);
+  document.getElementById('kpiOntime').innerText = fmtPct(optimizedResult.summary.onTimeRate);
+}
+
+function fillOrderTableFromResult(){
+  const tb = document.querySelector('#orderTable tbody');
+  tb.innerHTML = '';
+  let idx = 1;
+  optimizedResult.vehicles.forEach(vehicle=>{
+    vehicle.route.forEach((cid, orderIndex)=>{
+      const qty = Math.max(6, Math.round(vehicle.boxCount / vehicle.route.length));
+      const node = optimizedResult.nodes[cid];
+      const readyTime = orderIndex < 2 ? '08:30' : orderIndex < 4 ? '09:30' : '10:00';
+      const dueTime = orderIndex < 2 ? '10:30' : orderIndex < 4 ? '11:00' : '11:20';
+      if(node){
+        node.readyTime = readyTime;
+        node.dueTime = dueTime;
+      }
+      appendOrderRow({
+        index: idx,
+        orderNo: `PEAR-${String(cid).padStart(3,'0')}`,
+        origin: optimizedResult.depot.name,
+        destination: nodeName(cid),
+        itemL: 60,
+        itemW: 40,
+        itemH: 22,
+        qty,
+        boxType: vehicle.boxType || 'LH-600-220',
+        weight: vehicle.singleBoxWeight || 12.6,
+        lat: node?.lat || 32.31,
+        lng: node?.lng || 118.32,
+        readyTime,
+        dueTime,
+        actualArrival: '-',
+        status: '待规划'
+      });
+      idx++;
+    });
+  });
+}
+
+function renderResultTables(){
+  const packingBody = document.getElementById('packingResultBody');
+  const routeBody = document.getElementById('routeResultBody');
+  const cards = document.getElementById('routeCards');
+  packingBody.innerHTML = '';
+  routeBody.innerHTML = '';
+  cards.innerHTML = '';
+
+  optimizedResult.vehicles.forEach(vehicle=>{
+    computeVehicleSchedule(vehicle);
+    const route = routeText(vehicle.route);
+    const load = fmtPct(vehicle.loadDensity);
+    const loading = vehicle.packingOrder.map(nodeName).join(' → ');
+    const unitCount = buildPackingUnits(vehicle).length;
+    packingBody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>车辆 ${vehicle.id}</td>
+        <td>${route}</td>
+        <td>${loading}<br><span class="text-slate-400">共 ${unitCount} 个周转箱；后送达客户靠近车头，首个卸货客户靠近尾门</span></td>
+        <td>${load}<br><span class="text-slate-400">${(vehicle.totalVolume || 0).toFixed(2)}m³ / ${truckSpec.volumeM3}m³; ${(vehicle.totalWeight || 0).toFixed(0)}kg / ${truckSpec.maxLoadKg}kg</span></td>
+        <td>${fmtPct(vehicle.lossRate)}</td>
+      </tr>
+    `);
+    routeBody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td><span class="route-dot" style="background:${vehicle.color}"></span>车辆${vehicle.id}</td>
+        <td>${route}</td>
+        <td>${vehicle.distance.toFixed(1)}</td>
+        <td>${fmtMoney(vehicle.cost)}</td>
+        <td>${fmtPct(vehicle.lossRate)}</td>
+        <td>${vehicle.carbon.toFixed(1)}</td>
+        <td>${vehicle.route.map(cid=>`${nodeName(cid)} ${vehicle.arrivals?.[cid] || '-'} ${vehicle.statuses?.[cid] || ''}`).join('<br>')}</td>
+      </tr>
+    `);
+    cards.insertAdjacentHTML('beforeend', `
+      <div class="route-card">
+        <div class="font-semibold"><span class="route-dot" style="background:${vehicle.color}"></span>车辆${vehicle.id}</div>
+        <div class="text-slate-400 mt-1">${route}</div>
+        <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
+          <span>成本 ${fmtMoney(vehicle.cost)}</span>
+          <span>里程 ${vehicle.distance.toFixed(1)} km</span>
+          <span>货损 ${fmtPct(vehicle.lossRate)}</span>
+        </div>
+      </div>
+    `);
+  });
+}
+
+function setupVehicleSelect(){
+  const sel = document.getElementById('vehicleSelect');
+  sel.innerHTML = '';
+  optimizedResult.vehicles.forEach(v=>{
+    const opt = document.createElement('option');
+    opt.value = v.id;
+    opt.textContent = `车辆 ${v.id}：${v.route.map(nodeName).join('，')}`;
+    sel.appendChild(opt);
+  });
+  sel.onchange = ()=>renderPackingForVehicle(Number(sel.value));
+}
+
+function setupBoxSpecSelect(){
+  const sel = document.getElementById('boxSpecSelect');
+  sel.innerHTML = '';
+  Object.entries(boxSpecs).forEach(([key,spec])=>{
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = `${spec.name} (${spec.l}x${spec.w}x${spec.h}cm)`;
+    sel.appendChild(opt);
+  });
+  sel.value = 'LH-600-220';
+  sel.onchange = ()=>{
+    const spec = getBoxSpec(sel.value);
+    setFieldValue('boxL',spec.l);
+    setFieldValue('boxW',spec.w);
+    setFieldValue('boxH',spec.h);
+    const selected = Number(document.getElementById('vehicleSelect').value || 1);
+    const vehicle = optimizedResult.vehicles.find(v=>v.id===selected);
+    if(vehicle) vehicle.boxType = sel.value;
+    renderPackingForVehicle(selected);
+  };
+}
+
+// ==================== 订单可编辑 ====================
+function makeEditable(td){
+  td.ondblclick = ()=>{
+    const old = td.innerText;
+    const inp = document.createElement('input');
+    inp.className = 'edit-input';
+    inp.value = old;
+    td.innerHTML = '';
+    td.appendChild(inp);
+    inp.focus();
+    inp.onblur = ()=>{ td.innerText = inp.value; }
+    inp.onkeydown = e=>{ if(e.key==='Enter') inp.blur(); }
+  }
+}
+document.querySelectorAll('.editable').forEach(makeEditable);
+
+function renumberOrders(){
+  document.querySelectorAll('#orderTable tbody tr').forEach((tr,i)=>{
+    tr.children[0].innerText = i + 1;
+  });
+}
+
+function appendOrderRow(order){
+  const tb = document.querySelector('#orderTable tbody');
+  const tr = document.createElement('tr');
+  const idx = order.index || tb.children.length + 1;
+  const boxType = order.boxType || 'LH-600-220';
+  const spec = getBoxSpec(boxType);
+  const lat = Number(order.lat);
+  const lng = Number(order.lng);
+  tr.dataset.lat = lat;
+  tr.dataset.lng = lng;
+  tr.dataset.geocodeSource = order.geocodeSource || '';
+  tr.innerHTML = `
+    <td class="py-2 editable">${idx}</td>
+    <td class="py-2 editable">${order.orderNo || 'NEW_ORDER'}</td>
+    <td class="py-2 editable">${order.origin || '滁州冷链中心'}</td>
+    <td class="py-2 editable">${order.destination || '新目的地'}</td>
+    <td class="py-2 editable">${order.itemL || spec.l}</td>
+    <td class="py-2 editable">${order.itemW || spec.w}</td>
+    <td class="py-2 editable">${order.itemH || spec.h}</td>
+    <td class="py-2 editable">${order.qty || 1}</td>
+    <td class="py-2 editable">${boxType}</td>
+    <td class="py-2 editable">${order.weight || getBoxSpec(boxType).grossWeight || 12.6}</td>
+    <td class="py-2 editable">${order.readyTime || '08:30'}</td>
+    <td class="py-2 editable">${order.dueTime || '11:30'}</td>
+    <td class="py-2">${order.actualArrival || '-'}</td>
+    <td class="py-2 text-slate-400">${order.status || '待规划'}</td>
+    <td><button class="delRow text-red-400">删除</button></td>
+  `;
+  tb.appendChild(tr);
+  tr.querySelectorAll('.editable').forEach(makeEditable);
+  tr.querySelector('.delRow').onclick = ()=>{ tr.remove(); renumberOrders(); };
+}
+
+function orderFromManualForm(){
+  const boxType = document.getElementById('formBoxType').value;
+  const spec = getBoxSpec(boxType);
+  const place = document.getElementById('formDest').value || '新目的地';
+  const localPoint = localGeocode(place);
+  return {
+    orderNo: document.getElementById('formOrderNo').value || `PEAR-${Date.now()}`,
+    origin: document.getElementById('formOrigin').value || '滁州冷链中心',
+    destination: place,
+    itemL: spec.l,
+    itemW: spec.w,
+    itemH: spec.h,
+    qty: Number(document.getElementById('formQty').value || 1),
+    boxType,
+    weight: Number(document.getElementById('formWeight').value || 12.6),
+    lat: localPoint ? localPoint.lat : Number(document.getElementById('formLat').value || 32.31),
+    lng: localPoint ? localPoint.lng : Number(document.getElementById('formLng').value || 118.32),
+    readyTime: document.getElementById('formReadyTime').value || '08:30',
+    dueTime: document.getElementById('formDueTime').value || '11:30',
+    geocodeSource: localPoint ? localPoint.source : '手动坐标'
+  };
+}
+
+function readOrdersFromTable(){
+  const orders = [...document.querySelectorAll('#orderTable tbody tr')].map((tr,i)=>{
+    const c = [...tr.children].map(td=>td.innerText.trim());
+    const point = localGeocode(c[3]) || {};
+    const latValue = Number(tr.dataset.lat);
+    const lngValue = Number(tr.dataset.lng);
+    return {
+      index: i + 1,
+      orderNo: c[1],
+      origin: c[2],
+      destination: c[3],
+      itemL: Number(c[4] || 60),
+      itemW: Number(c[5] || 40),
+      itemH: Number(c[6] || 22),
+      qty: Number(c[7] || 1),
+      boxType: c[8] || 'LH-600-220',
+      weight: Number(c[9] || 12.6),
+      readyTime: c[10] || '08:30',
+      dueTime: c[11] || '11:30',
+      actualArrival: c[12] || '-',
+      status: c[13] || '待规划',
+      lat: Number.isFinite(latValue) ? latValue : (point.lat ?? 32.31),
+      lng: Number.isFinite(lngValue) ? lngValue : (point.lng ?? 118.32),
+      geocodeSource: tr.dataset.geocodeSource || ''
+    };
+  });
+  return orders;
+}
+
+function syncOrdersIntoSingleVehicle(){
+  const orders = readOrdersFromTable().sort(compareOrdersByArrival);
+  if(!orders.length) return;
+  optimizedResult.nodes = {};
+  orders.forEach((o,i)=>{
+    const id = i + 1;
+    o.id = id;
+    optimizedResult.nodes[id] = {name:o.destination, lat:o.lat, lng:o.lng, readyTime:o.readyTime, dueTime:o.dueTime};
+  });
+  const maxVehicles = 6;
+  const solutions = generateConstrainedSolutions(orders,maxVehicles);
+  const feasible = solutions.filter(s=>s.valid);
+  const status = document.getElementById('constraintStatus');
+  if(!feasible.length){
+    status.className = 'bg-red-950 border border-red-500 rounded-lg p-3 text-sm text-red-100';
+    status.innerText = solutions[solutions.length-1]?.reason || '当前订单无法在约束下生成方案。';
+    renderSolutionOptions(solutions,-1);
+    return;
+  }
+  const onTimeFeasible = feasible.filter(s=>s.timeFeasible);
+  let best;
+  let alternatives = [];
+  if(onTimeFeasible.length){
+    onTimeFeasible.sort((a,b)=>a.totalCost-b.totalCost || a.vehicles.length-b.vehicles.length);
+    best = onTimeFeasible[0];
+    status.className = 'bg-emerald-950 border border-emerald-500 rounded-lg p-3 text-sm text-emerald-100';
+    status.innerText = `最优方案：${best.mode}，${best.vehicles.length} 辆车；时间窗作为强约束，准时送达率 100%，且综合成本不包含订单迟到惩罚成本。`;
+  }else{
+    feasible.sort((a,b)=>
+      b.onTimeRate-a.onTimeRate ||
+      a.totalTardinessMinutes-b.totalTardinessMinutes ||
+      a.lateOrders-b.lateOrders ||
+      a.totalCost-b.totalCost
+    );
+    best = feasible[0];
+    status.className = 'bg-amber-950 border border-amber-500 rounded-lg p-3 text-sm text-amber-100';
+    status.innerText = `没有找到 100% 准时方案；已生成准时率最高方案，准时率 ${fmtPct(best.onTimeRate)}，预计迟到 ${best.lateOrders} 单，总迟到约 ${Math.round(best.totalTardinessMinutes || 0)} 分钟。迟到线路已标红。`;
+  }
+  const selectedIndex = solutions.indexOf(best);
+  renderSolutionOptions(solutions,selectedIndex,alternatives);
+  applySolution(best);
+}
+
+// 新增订单
+document.getElementById('addOrder').onclick = ()=>{
+  appendOrderRow({orderNo:'NEW_ORDER', origin:'滁州冷链中心', destination:'新目的地', boxType:'LH-600-220', qty:1, weight:12.6, readyTime:'08:30', dueTime:'11:30'});
+}
+document.getElementById('submitManualOrder').onclick = ()=>{
+  appendOrderRow(orderFromManualForm());
+  renumberOrders();
+}
+document.getElementById('geocodeDest').onclick = async ()=>{
+  const place = document.getElementById('formDest').value.trim();
+  const status = document.getElementById('geocodeStatus');
+  if(!place){
+    status.innerText = '请先输入收货地名称。';
+    return;
+  }
+  status.innerText = '正在查询地点坐标...';
+  try{
+    const result = await geocodePlace(place);
+    document.getElementById('formLat').value = result.lat.toFixed(6);
+    document.getElementById('formLng').value = result.lng.toFixed(6);
+    status.innerText = `已定位：${result.lat.toFixed(6)}, ${result.lng.toFixed(6)}（${result.source}）`;
+  }catch(err){
+    status.innerText = err.message;
+  }
+}
+document.getElementById('syncOrdersToVisual').onclick = ()=>{
+  syncOrdersIntoSingleVehicle();
+  alert('已基于当前订单输出时间窗强约束方案：优先保证准时送达率 100%，再选择综合成本最小；若无法全准时，则生成准时率最高方案并标红迟到线路。');
+}
+document.querySelectorAll('.delRow').forEach(b=>{
+  b.onclick = ()=>{ b.closest('tr').remove(); renumberOrders(); };
+});
+
+// 导入订单
+document.getElementById('importOrder').onclick = ()=>{
+  document.getElementById('importModal').classList.add('active');
+}
+document.getElementById('closeImportModal').onclick = ()=>document.getElementById('importModal').classList.remove('active');
+document.getElementById('clearOrders').onclick = ()=>{
+  document.querySelector('#orderTable tbody').innerHTML = '';
+  document.getElementById('importPreview').innerText = '当前订单已清空。';
+}
+document.getElementById('downloadTemplate').onclick = ()=>{
+  const rows = [
+    {
+      '订单号':'PEAR-001',
+      '发货地':'滁州冷链中心',
+      '收货地':'琅琊区菜市场',
+      '数量':12,
+      '箱型':'LH-600-220',
+      '单箱重量':12.6,
+      '起送时间':'08:30',
+      '要求送达时间':'11:30'
+    },
+    {
+      '订单号':'PEAR-002',
+      '发货地':'滁州冷链中心',
+      '收货地':'南谯区商超',
+      '数量':18,
+      '箱型':'LH-600-220',
+      '单箱重量':12.6,
+      '起送时间':'08:40',
+      '要求送达时间':'12:00'
+    },
+    {
+      '订单号':'PEAR-003',
+      '发货地':'滁州冷链中心',
+      '收货地':'开发区团购点',
+      '数量':15,
+      '箱型':'LH-600-220',
+      '单箱重量':12.6,
+      '起送时间':'09:10',
+      '要求送达时间':'12:20'
+    }
+  ];
+  if(window.XLSX){
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows,{header:['订单号','发货地','收货地','数量','箱型','单箱重量','起送时间','要求送达时间']});
+    ws['!cols'] = [
+      {wch:14},{wch:18},{wch:18},{wch:10},{wch:14},{wch:12},{wch:12},{wch:16}
+    ];
+    XLSX.utils.book_append_sheet(wb,ws,'订单导入模板');
+    const noteRows = [
+      ['字段','填写说明'],
+      ['订单号','必填，建议唯一，例如 PEAR-001'],
+      ['发货地','默认可填：滁州冷链中心'],
+      ['收货地','填写具体地点名称；系统会用本地地点库或高德地图查询经纬度'],
+      ['数量','周转箱数量，必须为数字'],
+      ['箱型','四箱型口径：LH-600-140 / 220 / 300 / 340；常规主箱型为 LH-600-220'],
+      ['单箱重量','单位 kg；140/220/300/340 建议 6.7 / 12.6 / 18.5 / 24.3'],
+      ['起送时间 / 要求送达时间','格式 HH:mm，例如 08:30；卸货顺序会按要求送达时间自动判断，越早送达越优先卸货']
+    ];
+    const note = XLSX.utils.aoa_to_sheet(noteRows);
+    note['!cols'] = [{wch:22},{wch:76}];
+    XLSX.utils.book_append_sheet(wb,note,'填写说明');
+    XLSX.writeFile(wb,'订单导入模板.xlsx');
+    return;
+  }
+  const headers = ['订单号','发货地','收货地','数量','箱型','单箱重量','起送时间','要求送达时间'];
+  const csv = '\ufeff' + [
+    headers.join(','),
+    ...rows.map(row=>headers.map(h=>`"${String(row[h]).replace(/"/g,'""')}"`).join(','))
+  ].join('\r\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.download = '订单导入模板.csv';
+  a.href = URL.createObjectURL(blob);
+  a.click();
+}
+document.getElementById('orderFileInput').onchange = async (event)=>{
+  const file = event.target.files[0];
+  if(!file) return;
+  const data = await file.arrayBuffer();
+  const workbook = XLSX.read(data,{type:'array'});
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet,{defval:''});
+  const failedPlaces = [];
+  for(const [idx,row] of rows.entries()){
+    const boxType = row['箱型'] || row['周转箱型号'] || 'LH-600-220';
+    const spec = getBoxSpec(boxType);
+    const dest = row['收货地'] || row['目的地'] || '导入目的地';
+    const rowLat = Number(row['纬度'] || row['lat'] || row['Lat'] || row['latitude']);
+    const rowLng = Number(row['经度'] || row['lng'] || row['Lng'] || row['lon'] || row['longitude']);
+    let point = null;
+    if(Number.isFinite(rowLat) && Number.isFinite(rowLng)){
+      point = {lat:rowLat, lng:rowLng, source:'导入坐标'};
+    }else{
+      try{
+        point = await geocodePlace(dest);
+      }catch(err){
+        failedPlaces.push(`${idx + 1}. ${dest}`);
+        continue;
+      }
+    }
+    appendOrderRow({
+      orderNo: row['订单号'] || `IMPORT-${idx+1}`,
+      origin: row['发货地'] || '滁州冷链中心',
+      destination: dest,
+      itemL: spec.l,
+      itemW: spec.w,
+      itemH: spec.h,
+      qty: Number(row['数量'] || row['周转箱数量'] || 1),
+      boxType,
+      weight: Number(row['单箱重量'] || row['单箱重量(kg)'] || getBoxSpec(boxType).grossWeight || 12.6),
+      lat: point.lat,
+      lng: point.lng,
+      geocodeSource: point.source,
+      readyTime: row['起送时间'] || row['起送时间窗'] || '08:30',
+      dueTime: row['要求送达时间'] || row['要求送达'] || '11:30'
+    });
+  }
+  renumberOrders();
+  const imported = rows.length - failedPlaces.length;
+  document.getElementById('importPreview').innerText =
+    `已导入 ${imported} 条订单；卸货顺序按要求送达时间自动判断。` +
+    (failedPlaces.length ? ` 有 ${failedPlaces.length} 个地点定位失败：${failedPlaces.join('; ')}。` : ' 点击刷新装箱/路径后生效。');
+}
+
+// ==================== 三维装箱预览 ====================
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 2000);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+const container = document.getElementById('packingCanvas');
+renderer.setSize(container.clientWidth, container.clientHeight);
+container.appendChild(renderer.domElement);
+camera.position.set(10,10,10);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.background = new THREE.Color(0x1e293b);
+scene.add(new THREE.AmbientLight(0xffffff,0.75));
+const packLight = new THREE.DirectionalLight(0xffffff,0.8);
+packLight.position.set(8,10,8);
+scene.add(packLight);
+
+function resizePackingCanvas(){
+  const w = Math.max(320, container.clientWidth);
+  const h = Math.max(520, container.clientHeight);
+  renderer.setSize(w,h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',resizePackingCanvas);
+
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+function clearPackingScene(){
+  while(scene.children.length){
+    scene.remove(scene.children[0]);
+  }
+  const grid = new THREE.GridHelper(16,32,0x64748b,0x334155);
+  grid.position.y = -2.7;
+  scene.add(grid);
+  scene.add(new THREE.AmbientLight(0xffffff,0.75));
+  const light = new THREE.DirectionalLight(0xffffff,0.8);
+  light.position.set(8,10,8);
+  scene.add(light);
+}
+
+function createTypeCodeSprite(code){
+  const canvas = document.createElement('canvas');
+  canvas.width = 96;
+  canvas.height = 96;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(15,23,42,0.86)';
+  ctx.beginPath();
+  ctx.roundRect(16,16,64,64,14);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.78)';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 46px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(code,48,50);
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false});
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(0.34,0.34,0.34);
+  return sprite;
+}
+
+function renderPackingForVehicle(vehicleId){
+  const vehicle = optimizedResult.vehicles.find(v=>v.id===vehicleId) || optimizedResult.vehicles[0];
+  resizePackingCanvas();
+  clearPackingScene();
+  if(!vehicle){
+    document.getElementById('packingStepText').innerText = '暂无满足 100% 准时送达强约束的车辆装箱方案。';
+    document.getElementById('packingStepBody').innerHTML = '';
+    document.getElementById('orderPackingBody').innerHTML = '';
+    return;
+  }
+  const displaySpec = getBoxSpec(vehicle.boxType === 'MIXED' ? 'LH-600-220' : (vehicle.boxType || document.getElementById('boxSpecSelect').value));
+  document.getElementById('boxSpecSelect').value = vehicle.boxType === 'MIXED' ? 'LH-600-220' : (vehicle.boxType || 'LH-600-220');
+  setFieldValue('boxL',displaySpec.l);
+  setFieldValue('boxW',displaySpec.w);
+  setFieldValue('boxH',displaySpec.h);
+  const truckLcm = Number(document.getElementById('truckL').value);
+  const truckWcm = Number(document.getElementById('truckW').value);
+  const truckHcm = Number(document.getElementById('truckH').value);
+  const truckLoad = Number(document.getElementById('truckLoadKg').value || truckSpec.maxLoadKg);
+  const truckL = truckLcm/40;
+  const truckW = truckWcm/40;
+  const truckH = truckHcm/40;
+  const stepEl = document.getElementById('packingStep');
+  const fullPlan = buildPackingPlan(vehicle);
+  stepEl.max = Math.max(1, Math.min(fullPlan.units.length, fullPlan.capacity));
+  if(stepEl.dataset.vehicle !== String(vehicle.id) || !stepEl.dataset.touched){
+    stepEl.value = stepEl.max;
+    stepEl.dataset.vehicle = String(vehicle.id);
+  }
+  const visibleCount = Math.min(Number(stepEl.value || fullPlan.units.length), fullPlan.units.length, fullPlan.capacity);
+  const {units, plan, cols, rows, levels, capacity, grid, target} = buildPackingPlan(vehicle, visibleCount);
+  const boxNum = units.length;
+  const totalWeight = vehicle.totalWeight || boxNum * (vehicle.singleBoxWeight || 12.6);
+  const totalVolume = vehicle.totalVolume || units.reduce((sum,u)=>sum+u.spec.l*u.spec.w*u.spec.h/1000000,0);
+  const pearCount = units.reduce((sum,u)=>sum+(u.spec.pearCapacity || 52),0);
+  document.getElementById('boxUse').innerText = boxNum;
+  document.getElementById('rate').innerText = (Math.min(1,totalVolume/truckSpec.volumeM3)*100).toFixed(1);
+  document.getElementById('weightRate').innerText = (Math.min(1,totalWeight/truckLoad)*100).toFixed(1);
+  document.getElementById('unloadOrder').innerText = vehicle.route.map(nodeName).join(' -> ');
+  document.getElementById('loadingOrder').innerText = vehicle.packingOrder.map(nodeName).join(' → ');
+  document.getElementById('packingStepText').innerText =
+    `当前显示 ${visibleCount} / ${boxNum} 个周转箱；按 R1-R${rows} 从车头到车尾装载，每层按 C 列横向填充，首个卸货客户保留在靠近尾门位置。`;
+
+  const truckGeo = new THREE.BoxGeometry(truckL,truckH,truckW);
+  const truckMat = new THREE.MeshBasicMaterial({wireframe:true,color:0x3b82f6});
+  const truck = new THREE.Mesh(truckGeo,truckMat);
+  scene.add(truck);
+  const wallMat = new THREE.MeshBasicMaterial({color:0xcbd5e1,transparent:true,opacity:0.16,side:THREE.DoubleSide});
+  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(truckL,truckH),wallMat);
+  backWall.position.z = -truckW/2;
+  scene.add(backWall);
+  const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(truckW,truckH),wallMat);
+  leftWall.rotation.y = Math.PI/2;
+  leftWall.position.x = -truckL/2;
+  scene.add(leftWall);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(truckL,truckW),new THREE.MeshBasicMaterial({color:0x334155,transparent:true,opacity:0.20,side:THREE.DoubleSide}));
+  floor.rotation.x = Math.PI/2;
+  floor.position.y = -truckH/2;
+  scene.add(floor);
+
+  document.getElementById('boxCapacity').innerText = capacity;
+
+  const colorByCustomer = customerColorMap(vehicle);
+  plan.forEach(item=>{
+    const spec = item.spec;
+    const g = new THREE.BoxGeometry((spec.l/40)*0.92,(spec.h/40)*0.92,(spec.w/40)*0.92);
+    const customerColor = colorByCustomer.get(item.customerId) || customerColorFor(vehicle,item.customerId);
+    const m = new THREE.MeshLambertMaterial({color:customerColor,transparent:true,opacity:0.88});
+    const box = new THREE.Mesh(g,m);
+    box.position.set(item.xCm/40, item.yCm/40, item.zCm/40);
+    scene.add(box);
+    const typeLabel = createTypeCodeSprite(spec.code || boxTypeCode(item.type));
+    typeLabel.position.set(box.position.x, box.position.y + (spec.h/40)*0.52, box.position.z + (spec.w/40)*0.22);
+    scene.add(typeLabel);
+    const edge = new THREE.EdgesGeometry(g);
+    const isCurrent = item.seq === visibleCount;
+    const edgeLine = new THREE.LineSegments(edge,new THREE.LineBasicMaterial({color:isCurrent ? 0xff8c00 : 0x0f172a,transparent:true,opacity:isCurrent ? 1 : 0.55}));
+    edgeLine.position.copy(box.position);
+    scene.add(edgeLine);
+    if(isCurrent){
+      const currentOutline = new THREE.BoxHelper(box,0xff8c00);
+      scene.add(currentOutline);
+    }
+  });
+
+  const doorGeo = new THREE.PlaneGeometry(truckW, truckH);
+  const doorMat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.10,side:THREE.DoubleSide});
+  const door = new THREE.Mesh(doorGeo, doorMat);
+  door.rotation.y = Math.PI/2;
+  door.position.x = truckL/2 + 0.02;
+  scene.add(door);
+  const overflowText = boxNum > capacity ? ` | 超出${boxNum - capacity}箱，需增加车辆或拆分订单` : '';
+  document.getElementById('packingStats').innerText =
+    `LH-600-220 主力箱 | ${rows} 排 × ${cols} 列 × ${levels} 层 = ${capacity} 箱 | 约 ${pearCount} 个梨 | 体积 ${totalVolume.toFixed(2)}m³ / ${truckSpec.volumeM3}m³ | 重量 ${totalWeight.toFixed(0)}kg / ${truckLoad}kg | ${target.mode}，车头预留 ${grid.frontBufferCm}cm，车尾预留 ${grid.rearBufferCm}cm${overflowText}`;
+  renderPackingDetails(vehicle, plan, units);
+
+  camera.position.set(truckL*0.9, truckH*1.2, truckW*1.6);
+  controls.target.set(0,0,0);
+  controls.update();
+}
+
+function renderPackingDetails(vehicle, visiblePlan, units){
+  const legend = document.getElementById('boxLegend');
+  const colorByCustomer = customerColorMap(vehicle);
+  const customerLegend = vehicle.route.map(cid=>
+    `<span class="box-legend"><span class="color-swatch" style="background:${colorByCustomer.get(cid) || customerColorFor(vehicle,cid)}"></span>${nodeName(cid)}</span>`
+  ).join('');
+  const usedTypes = [...new Set(units.map(unit=>unit.type))];
+  const typeLegend = usedTypes.map(type=>{
+    const spec = getBoxSpec(type);
+    return `<span class="type-chip">${spec.code} = ${type}: ${spec.l}x${spec.w}x${spec.h}cm</span>`;
+  }).join('');
+  legend.innerHTML = `
+    <div class="legend-title">客户颜色</div>
+    <div>${customerLegend}</div>
+    <div class="legend-title mt-2">周转箱型号代码（箱体上方字母 + 外观尺寸 + 表格型号）</div>
+    <div>${typeLegend}</div>
+  `;
+
+  const orderBody = document.getElementById('orderPackingBody');
+  orderBody.innerHTML = '';
+  vehicle.route.forEach(cid=>{
+    const alloc = vehicle.allocations?.[cid] || [];
+    const count = alloc.reduce((sum,item)=>sum+item.count,0);
+    const pearCount = alloc.reduce((sum,item)=>sum+item.count*(getBoxSpec(item.type).pearCapacity || 52),0);
+    const weight = alloc.reduce((sum,item)=>sum+item.count*(getBoxSpec(item.type).grossWeight || vehicle.singleBoxWeight || 12.6),0);
+    orderBody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td><span class="color-swatch" style="background:${colorByCustomer.get(cid) || customerColorFor(vehicle,cid)}"></span> ${nodeName(cid)}</td>
+        <td>${count} 箱，约 ${pearCount} 个梨</td>
+        <td>${allocationText(alloc)}</td>
+        <td>${weight.toFixed(0)}kg</td>
+      </tr>
+    `);
+  });
+
+  const stepBody = document.getElementById('packingStepBody');
+  stepBody.innerHTML = '';
+  visiblePlan.slice(-36).forEach(item=>{
+    stepBody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td>${item.seq}</td>
+        <td>${boxTypeCode(item.type)} / ${item.type}</td>
+        <td><span class="color-swatch" style="background:${colorByCustomer.get(item.customerId) || customerColorFor(vehicle,item.customerId)}"></span> ${item.customerName}</td>
+        <td>${item.rowCode}${item.colCode}${item.levelCode}</td>
+        <td>600mm 沿车长，400mm 沿车宽；先下后上、先横向后纵向；${item.spec.role || ''}；坐标(${item.xCm.toFixed(0)}, ${item.yCm.toFixed(0)}, ${item.zCm.toFixed(0)})cm</td>
+      </tr>
+    `);
+  });
+}
+
+// 生成装箱
+document.getElementById('startPack').onclick = ()=>{
+  const selected = Number(document.getElementById('vehicleSelect').value || 1);
+  document.getElementById('packingStep').value = document.getElementById('packingStep').max || 1;
+  renderPackingForVehicle(selected);
+}
+document.getElementById('packingStep').oninput = ()=>{
+  document.getElementById('packingStep').dataset.touched = '1';
+  const selected = Number(document.getElementById('vehicleSelect').value || 1);
+  renderPackingForVehicle(selected);
+}
+document.getElementById('showFullPacking').onclick = ()=>{
+  const step = document.getElementById('packingStep');
+  delete step.dataset.touched;
+  step.value = step.max;
+  const selected = Number(document.getElementById('vehicleSelect').value || 1);
+  renderPackingForVehicle(selected);
+}
+
+function renderManualPackingPlaceholder(){
+  clearPackingScene();
+  const truckL = Number(document.getElementById('truckL').value)/40;
+  const truckW = Number(document.getElementById('truckW').value)/40;
+  const truckH = Number(document.getElementById('truckH').value)/40;
+  const boxL = Number(document.getElementById('boxL').value)/40;
+  const boxW = Number(document.getElementById('boxW').value)/40;
+  const boxH = Number(document.getElementById('boxH').value)/40;
+  const boxNum = 12;
+  document.getElementById('boxUse').innerText = boxNum;
+  document.getElementById('rate').innerText = 78;
+
+  const truckGeo = new THREE.BoxGeometry(truckL,truckH,truckW);
+  const truckMat = new THREE.MeshBasicMaterial({wireframe:true,color:0x3b82f6});
+  const truck = new THREE.Mesh(truckGeo,truckMat);
+  scene.add(truck);
+
+  for(let i=0;i<boxNum;i++){
+    const g = new THREE.BoxGeometry(boxL,boxH,boxW);
+    const m = new THREE.MeshLambertMaterial({color:0x10b981});
+    const box = new THREE.Mesh(g,m);
+    box.position.set((i%3)*1.2, Math.floor(i/6)*0.8, Math.floor(i/3)%2*1);
+    scene.add(box);
+  }
+}
+
+// ==================== 地图 & QGIS ====================
+const AMAP_KEY = '请填写你的高德地图 Key';
+const AMAP_SECURITY_CODE = '请填写你的高德地图安全密钥';
+let map = null;
+let amapReadyPromise = null;
+let lines = [];
+let markers = [];
+
+function ensureAmapReady(){
+  if(window.AMap) return Promise.resolve(window.AMap);
+  if(amapReadyPromise) return amapReadyPromise;
+  if(!AMAP_KEY || AMAP_KEY.includes('请填写')){
+    return Promise.reject(new Error('请先设置高德地图 Key。'));
+  }
+  amapReadyPromise = new Promise((resolve,reject)=>{
+    window._AMapSecurityConfig = {
+      securityJsCode: AMAP_SECURITY_CODE
+    };
+    const script = document.createElement('script');
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(AMAP_KEY)}&plugin=AMap.Geocoder,AMap.Driving`;
+    script.onload = ()=>resolve(window.AMap);
+    script.onerror = ()=>reject(new Error('高德地图脚本加载失败，请检查 Key 或网络。'));
+    document.head.appendChild(script);
+  });
+  return amapReadyPromise;
+}
+
+async function ensureAmapMap(){
+  await ensureAmapReady();
+  if(!map){
+    map = new AMap.Map('map',{
+      zoom:12,
+      center:[optimizedResult.depot.lng,optimizedResult.depot.lat],
+      viewMode:'2D',
+      resizeEnable:true
+    });
+  }
+  return map;
+}
+
+function openAmapInfo(position,html){
+  const info = new AMap.InfoWindow({content:`<div style="font-size:13px;line-height:1.7">${html}</div>`,offset:new AMap.Pixel(0,-10)});
+  info.open(map,position);
+}
+
+function addAmapMarker(node,color,html,isDepot=false){
+  const position = [node.lng,node.lat];
+  const marker = new AMap.Marker({
+    position,
+    title:node.name,
+    content:`<div style="width:${isDepot ? 18 : 14}px;height:${isDepot ? 18 : 14}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 0 2px rgba(15,23,42,.35)"></div>`,
+    offset:new AMap.Pixel(isDepot ? -9 : -7,isDepot ? -9 : -7)
+  });
+  marker.setMap(map);
+  marker.on('click',()=>openAmapInfo(position,html));
+  markers.push(marker);
+  return marker;
+}
+
+function addAmapPolyline(points,color,html,dashed=false){
+  const polyline = new AMap.Polyline({
+    path:points,
+    strokeColor:color,
+    strokeWeight:5,
+    strokeOpacity:0.95,
+    strokeStyle:dashed ? 'dashed' : 'solid',
+    lineJoin:'round'
+  });
+  polyline.setMap(map);
+  polyline.on('click',e=>openAmapInfo(e.lnglat,html));
+  lines.push(polyline);
+  return polyline;
+}
+
+ensureAmapMap().catch(err=>{
+  const alert = document.getElementById('routeAlert');
+  alert.className = 'mb-3 bg-amber-950 border border-amber-500 text-amber-100 rounded-lg px-4 py-3 text-sm';
+  alert.innerText = err.message;
+});
+
+// 添加途经点
+document.getElementById('addWay').onclick = ()=>{
+  const d = document.createElement('div');
+  d.className = 'flex gap-2';
+  d.innerHTML = `<input class="flex-1 bg-slate-700 rounded px-3 py-2" placeholder="收货地">
+    <button class="delWay px-2 bg-red-500 rounded">-</button>`;
+  document.getElementById('wayList').appendChild(d);
+  d.querySelector('.delWay').onclick = ()=>d.remove();
+}
+
+// 生成公路路径
+async function renderOptimizedRoutes(){
+  try{
+    await ensureAmapMap();
+  }catch(err){
+    const alert = document.getElementById('routeAlert');
+    alert.className = 'mb-3 bg-amber-950 border border-amber-500 text-amber-100 rounded-lg px-4 py-3 text-sm';
+    alert.innerText = err.message;
+    return;
+  }
+  lines.forEach(l=>l.setMap(null));
+  markers.forEach(m=>m.setMap(null));
+  lines = [];
+  markers = [];
+  let hasLateRoute = false;
+  let usedFallback = false;
+  let totalRoadDistance = 0;
+  const depot = optimizedResult.depot;
+  addAmapMarker(depot,'#3b82f6','配送中心：' + depot.name,true);
+
+  for(const vehicle of optimizedResult.vehicles){
+    let prevNode = depot;
+    let lateStarted = false;
+    let vehicleRoadDistance = 0;
+    let clock = timeToMinutes('08:00');
+    vehicle.arrivals = {};
+    vehicle.statuses = {};
+    vehicle.lateFlags = {};
+    vehicle.tardinessMinutes = {};
+    for(const cid of vehicle.route){
+      const node = optimizedResult.nodes[cid];
+      const segment = await fetchRoadSegment(prevNode,node);
+      if(segment.source === 'fallback') usedFallback = true;
+      vehicleRoadDistance += segment.distanceKm;
+      clock += Math.max(8,segment.durationMin);
+      const ready = timeToMinutes(node.readyTime || '08:00');
+      if(clock < ready) clock = ready;
+      const due = timeToMinutes(node.dueTime || '18:00');
+      const lateMinutes = Math.max(0,clock - due);
+      const status = lateMinutes > 0 ? '迟到' : '准时';
+      vehicle.arrivals[cid] = minutesToTime(clock);
+      vehicle.statuses[cid] = status;
+      vehicle.tardinessMinutes[cid] = lateMinutes;
+      if(status === '迟到'){
+        lateStarted = true;
+        hasLateRoute = true;
+      }
+      const customerColor = customerColorFor(cid);
+      const segmentColor = lateMinutes > 0 ? '#ef4444' : customerColor;
+      const lateText = lateMinutes > 0 ? `<br>预计迟到：${Math.round(lateMinutes)}分钟` : '';
+      addAmapPolyline(segment.points,segmentColor,`车辆 ${vehicle.id}<br>${node.name}<br>高德路网距离：${segment.distanceKm.toFixed(1)}km<br>预计行驶时间：${segment.durationMin.toFixed(0)}分钟<br>实际抵达：${vehicle.arrivals?.[cid] || '-'}<br>要求送达：${node.dueTime || '-'}<br>状态：${status}${lateText}`);
+      addAmapMarker(node,segmentColor,`车辆 ${vehicle.id}<br>${node.name}<br>起送时间：${node.readyTime || '-'}<br>要求送达：${node.dueTime || '-'}<br>实际抵达：${vehicle.arrivals?.[cid] || '-'}<br>状态：${status}${lateText}<br>预测货损：${fmtPct(vehicle.lossRate)}`);
+      clock += 10;
+      prevNode = node;
+    }
+    const returnSegment = await fetchRoadSegment(prevNode,depot);
+    if(returnSegment.source === 'fallback') usedFallback = true;
+    vehicleRoadDistance += returnSegment.distanceKm;
+    addAmapPolyline(returnSegment.points,lateStarted ? '#ef4444' : vehicle.color,`车辆 ${vehicle.id} 返回<br>成本：${fmtMoney(vehicle.cost)}<br>距离：${vehicle.distance.toFixed(1)} km`,true);
+    recomputeVehicleCost(vehicle,vehicleRoadDistance);
+    vehicle.roadSchedule = true;
+    totalRoadDistance += vehicleRoadDistance;
+  }
+
+  optimizedResult.summary.totalDistance = optimizedResult.vehicles.reduce((sum,v)=>sum+v.distance,0);
+  optimizedResult.summary.totalCost = optimizedResult.vehicles.reduce((sum,v)=>sum+v.cost,0);
+  optimizedResult.summary.totalCarbon = optimizedResult.vehicles.reduce((sum,v)=>sum+v.carbon,0);
+  refreshOverview();
+  renderResultTables();
+
+  const alert = document.getElementById('routeAlert');
+  if(hasLateRoute){
+    const lateOrders = optimizedResult.vehicles.flatMap(vehicle=>
+      vehicle.route
+        .filter(cid=>vehicle.statuses?.[cid] === '迟到')
+        .map(cid=>({
+          name: nodeName(cid),
+          delay: vehicle.tardinessMinutes?.[cid] || 0
+        }))
+    );
+    const totalDelay = lateOrders.reduce((sum,item)=>sum + item.delay,0);
+    const detail = lateOrders.map(item=>`${item.name}迟到约${Math.round(item.delay)}分钟`).join('；');
+    alert.className = 'mb-3 bg-red-950 border border-red-500 text-red-100 rounded-lg px-4 py-3 text-sm';
+    alert.innerText = `未找到 100% 准时方案；当前为准时率最高方案。预计迟到 ${lateOrders.length} 单，总迟到约 ${Math.round(totalDelay)} 分钟。${detail ? detail + '。' : ''}迟到线路已标红。${usedFallback ? ' 部分路段未获取到高德驾车路径，已使用近似路网连线。' : ''}`;
+  }else if(usedFallback){
+    alert.classList.remove('hidden');
+    alert.className = 'mb-3 bg-amber-950 border border-amber-500 text-amber-100 rounded-lg px-4 py-3 text-sm';
+    alert.innerText = '部分路段未获取到高德驾车路径，已使用近似路网连线。';
+  }else{
+    alert.classList.add('hidden');
+    alert.innerText = '';
+    alert.className = 'hidden mb-3 bg-red-950 border border-red-500 text-red-100 rounded-lg px-4 py-3 text-sm';
+  }
+  if(markers.length || lines.length){
+    map.setFitView([...markers,...lines],false,[24,24,24,24]);
+  }
+  document.getElementById('mileage').innerText = optimizedResult.summary.totalDistance.toFixed(2);
+  document.getElementById('routeCost').innerText = fmtMoney(optimizedResult.summary.totalCost);
+  document.getElementById('routeCarbon').innerText = optimizedResult.summary.totalCarbon.toFixed(2);
+  updateOrderActualTimes();
+  recalcOnTimeRate();
+}
+document.getElementById('genRoute').onclick = ()=>syncOrdersIntoSingleVehicle();
+
+// 导出QGIS
+document.getElementById('exportQGIS').onclick = ()=>{
+  optimizedResult.vehicles.forEach(vehicle=>computeVehicleSchedule(vehicle));
+  const geojson = {
+    type:"FeatureCollection",
+    name:"冷链配送路径_QGIS",
+    features:[]
+  };
+  const depot = optimizedResult.depot;
+  geojson.features.push({
+    type:"Feature",
+    geometry:{type:"Point",coordinates:[depot.lng,depot.lat]},
+    properties:{
+      feature_type:"配送中心",
+      name:depot.name,
+      vehicle_id:"",
+      route_order:0,
+      actual_arrival:"",
+      due_time:"",
+      status:"",
+      note:"坐标系：WGS84，经纬度顺序为 longitude, latitude。"
+    }
+  });
+  optimizedResult.vehicles.forEach(vehicle=>{
+    const path = [[depot.lng,depot.lat]];
+    vehicle.route.forEach((cid,index)=>{
+      const node = optimizedResult.nodes[cid];
+      if(!node) return;
+      path.push([node.lng,node.lat]);
+      geojson.features.push({
+        type:"Feature",
+        geometry:{type:"Point",coordinates:[node.lng,node.lat]},
+        properties:{
+          feature_type:"客户点",
+          name:node.name,
+          vehicle_id:vehicle.id,
+          route_order:index+1,
+          actual_arrival:vehicle.arrivals?.[cid] || "",
+          due_time:node.dueTime || "",
+          status:vehicle.statuses?.[cid] || "",
+          tardiness_min:vehicle.tardinessMinutes?.[cid] || 0,
+          predicted_loss_rate:Number((vehicle.lossRate * 100).toFixed(2)),
+          box_count:vehicle.allocations?.[cid]?.reduce((sum,item)=>sum+item.count,0) || 0
+        }
+      });
+    });
+    path.push([depot.lng,depot.lat]);
+    if(path.length > 2){
+      geojson.features.push({
+        type:"Feature",
+        geometry:{type:"LineString",coordinates:path},
+        properties:{
+          feature_type:"车辆路径",
+          name:`车辆${vehicle.id}配送路径`,
+          vehicle_id:vehicle.id,
+          distance_km:Number(vehicle.distance.toFixed(2)),
+          cost:Number(vehicle.cost.toFixed(2)),
+          carbon_kg:Number(vehicle.carbon.toFixed(2)),
+          route:`中心 → ${vehicle.route.map(nodeName).join(' → ')} → 中心`,
+          note:"该线为配送节点连线；若已生成高德路网路径，网页地图中显示的是路网折线。"
+        }
+      });
+    }
+  });
+  if(!geojson.features.length){
+    alert('当前没有可导出的路径数据，请先运行模型或生成路径。');
+    return;
+  }
+  const blob = new Blob([JSON.stringify(geojson,null,2)],{type:"application/geo+json"});
+  const a = document.createElement('a');
+  a.download = '冷链配送路径_QGIS.geojson';
+  a.href = URL.createObjectURL(blob);
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  alert('已导出 QGIS 兼容 GeoJSON 文件，包含配送中心、客户点和车辆路径线。');
+}
+
+// 保存地图图片
+document.getElementById('saveMapImg').onclick = async ()=>{
+  const c = await html2canvas(document.getElementById('map'));
+  const a = document.createElement('a');
+  a.download = '物流路径地图.png';
+  a.href = c.toDataURL('image/png');
+  a.click();
+}
+
+function applyOptimizedResult(){
+  fillOrderTableFromResult();
+  setupBoxSpecSelect();
+  syncOrdersIntoSingleVehicle();
+  document.getElementById('routeStart').value = optimizedResult.depot.name;
+  document.getElementById('routeEnd').value = optimizedResult.depot.name;
+  const wayList = document.getElementById('wayList');
+  wayList.innerHTML = '';
+  optimizedResult.vehicles[0].route.forEach(cid=>{
+    const d = document.createElement('div');
+    d.className = 'flex gap-2';
+    d.innerHTML = `<input class="flex-1 bg-slate-700 rounded px-3 py-2" value="${nodeName(cid)}">
+      <button class="delWay px-2 bg-red-500 rounded">-</button>`;
+    wayList.appendChild(d);
+    d.querySelector('.delWay').onclick = ()=>d.remove();
+  });
+}
+
+document.getElementById('runModel').onclick = ()=>{
+  syncOrdersIntoSingleVehicle();
+  alert('已基于当前订单输出时间窗强约束方案：优先保证准时送达率 100%，再选择综合成本最小；若无法全准时，则生成准时率最高方案并标红迟到线路。');
+};
+
+applyOptimizedResult();
+</script>
+</body>
+</html>
