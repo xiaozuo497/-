@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-label="路径优化与 QGIS 截图示意">
+  <rect width="1280" height="760" fill="#0f172a"/>
+  <text x="42" y="58" fill="#f8fafc" font-family="Microsoft YaHei, Arial" font-size="30" font-weight="700">路径优化 &amp; QGIS</text>
+  <rect x="42" y="98" width="330" height="610" rx="14" fill="#1f2937"/>
+  <text x="74" y="146" fill="#f8fafc" font-family="Microsoft YaHei, Arial" font-size="24" font-weight="700">路径参数</text>
+  <g font-family="Microsoft YaHei, Arial" font-size="16">
+    <rect x="74" y="176" width="250" height="36" rx="5" fill="#334155"/><text x="90" y="200" fill="#e2e8f0">滁州冷链中心</text>
+    <rect x="74" y="232" width="250" height="36" rx="5" fill="#334155"/><text x="90" y="256" fill="#e2e8f0">沙河镇配送点</text>
+    <rect x="74" y="276" width="250" height="36" rx="5" fill="#334155"/><text x="90" y="300" fill="#e2e8f0">腰铺镇配送点</text>
+    <rect x="74" y="320" width="250" height="36" rx="5" fill="#334155"/><text x="90" y="344" fill="#e2e8f0">城南农贸点</text>
+    <rect x="74" y="380" width="250" height="42" rx="6" fill="#4f7ee8"/><text x="120" y="407" fill="#fff">生成最优公路路径</text>
+    <rect x="74" y="434" width="250" height="42" rx="6" fill="#58bd83"/><text x="120" y="461" fill="#fff">导出 QGIS 点位文件</text>
+  </g>
+  <text x="74" y="526" fill="#e2e8f0" font-family="Microsoft YaHei, Arial" font-size="17">总里程：197.49 km</text>
+  <text x="74" y="556" fill="#e2e8f0" font-family="Microsoft YaHei, Arial" font-size="17">最终成本：¥2,766.96</text>
+  <text x="74" y="586" fill="#e2e8f0" font-family="Microsoft YaHei, Arial" font-size="17">碳排放：164.99 kg CO2e</text>
+  <rect x="410" y="98" width="828" height="610" rx="14" fill="#1f2937"/>
+  <text x="446" y="146" fill="#f8fafc" font-family="Microsoft YaHei, Arial" font-size="24" font-weight="700">公路路网路径地图（高德地图 &amp; QGIS）</text>
+  <rect x="446" y="174" width="744" height="54" rx="8" fill="#5b1111" stroke="#ef4444"/>
+  <text x="470" y="208" fill="#fecaca" font-family="Microsoft YaHei, Arial" font-size="16">未找到 100% 准时方案；当前为准时率最高方案，迟到线路已标红。</text>
+  <rect x="446" y="246" width="744" height="300" rx="8" fill="#e5e7eb"/>
+  <path d="M500 430 C590 260,720 520,820 320 S1040 330,1110 460" fill="none" stroke="#60a5fa" stroke-width="8"/>
+  <path d="M540 360 C650 370,700 270,780 380 S910 500,1030 350" fill="none" stroke="#f472b6" stroke-width="8"/>
+  <path d="M520 500 C640 450,690 600,850 510 S980 520,1090 430" fill="none" stroke="#f59e0b" stroke-width="8" stroke-dasharray="16 10"/>
+  <g fill="#fff" stroke="#475569" stroke-width="3">
+    <circle cx="560" cy="360" r="9"/><circle cx="720" cy="312" r="9"/><circle cx="850" cy="392" r="9"/><circle cx="980" cy="350" r="9"/><circle cx="1080" cy="440" r="9"/>
+  </g>
+  <text x="446" y="592" fill="#e2e8f0" font-family="Microsoft YaHei, Arial" font-size="17">车辆1：中心 → 沙河镇配送点 → 腰铺镇配送点 → 城南农贸点 → 南谯区商超 → 中心　85.5 km</text>
+  <text x="446" y="632" fill="#e2e8f0" font-family="Microsoft YaHei, Arial" font-size="17">车辆2：中心 → 明光路生鲜点 → 清流路商超 → 城北社区店 → 中心　60.4 km</text>
+  <text x="446" y="672" fill="#e2e8f0" font-family="Microsoft YaHei, Arial" font-size="17">车辆3：中心 → 开发区团购点 → 丰乐大道门店 → 琅琊区菜市场 → 中心　51.6 km</text>
+</svg>

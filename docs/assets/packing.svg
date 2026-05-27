@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-label="三维装箱截图示意">
+  <rect width="1280" height="760" fill="#0f172a"/>
+  <text x="36" y="58" fill="#f8fafc" font-family="Microsoft YaHei, Arial" font-size="30" font-weight="700">三维装箱预览（BJ5045XLCPHEV2 + LH-600周转箱）</text>
+  <text x="36" y="96" fill="#bfdbfe" font-family="Microsoft YaHei, Arial" font-size="17">LH-600-220 主力箱型 | 6排 × 5列 × 9层 | 约5720个梨 | 货厢 18.14m³ | 额定载重 3380kg</text>
+  <rect x="36" y="128" width="1170" height="590" rx="14" fill="#1f2937"/>
+  <g font-family="Microsoft YaHei, Arial">
+    <rect x="78" y="174" width="230" height="90" rx="8" fill="#0f172a" stroke="#334155"/>
+    <text x="100" y="205" fill="#93c5fd" font-size="15">验证载体</text>
+    <text x="100" y="235" fill="#f8fafc" font-size="20" font-weight="700">BJ5045XLCPHEV2</text>
+    <rect x="330" y="174" width="230" height="90" rx="8" fill="#0f172a" stroke="#334155"/>
+    <text x="352" y="205" fill="#93c5fd" font-size="15">货厢内尺寸</text>
+    <text x="352" y="235" fill="#f8fafc" font-size="20" font-weight="700">4080 × 2100 × 2100 mm</text>
+    <rect x="582" y="174" width="230" height="90" rx="8" fill="#0f172a" stroke="#334155"/>
+    <text x="604" y="205" fill="#93c5fd" font-size="15">容积 / 额定载重</text>
+    <text x="604" y="235" fill="#f8fafc" font-size="20" font-weight="700">18.14 m³ / 3380 kg</text>
+  </g>
+  <g transform="translate(310 330)">
+    <polygon points="0,80 300,0 580,120 260,230" fill="none" stroke="#3b82f6" stroke-width="3"/>
+    <polygon points="0,80 0,-70 300,-150 300,0" fill="none" stroke="#3b82f6" stroke-width="3" opacity=".9"/>
+    <polygon points="300,-150 580,-30 580,120 300,0" fill="none" stroke="#3b82f6" stroke-width="3" opacity=".9"/>
+    <g opacity=".9">
+      <g fill="#fb923c" stroke="#0f172a"><rect x="80" y="30" width="45" height="34"/><rect x="130" y="18" width="45" height="34"/><rect x="180" y="6" width="45" height="34"/></g>
+      <g fill="#67e8f9" stroke="#0f172a"><rect x="105" y="70" width="45" height="34"/><rect x="155" y="58" width="45" height="34"/><rect x="205" y="46" width="45" height="34"/></g>
+      <g fill="#a78bfa" stroke="#0f172a"><rect x="230" y="92" width="45" height="34"/><rect x="280" y="80" width="45" height="34"/><rect x="330" y="68" width="45" height="34"/></g>
+      <g fill="#a3e635" stroke="#0f172a"><rect x="260" y="30" width="45" height="34"/><rect x="310" y="18" width="45" height="34"/></g>
+    </g>
+  </g>
+  <rect x="78" y="600" width="1090" height="80" rx="8" fill="#0f172a" stroke="#334155"/>
+  <text x="102" y="634" fill="#e2e8f0" font-family="Microsoft YaHei, Arial" font-size="17">装箱顺序可视化：按 R1-R6 从车头到车尾装载，每层按 C 列蛇形填充，首站靠近后门。</text>
+  <text x="102" y="664" fill="#94a3b8" font-family="Microsoft YaHei, Arial" font-size="15">输出：车辆路线、装载顺序、空间利用率、货损率、逐箱坐标与摆放方向。</text>
+</svg>

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-label="订单与指标总览截图示意">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#111827"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="760" fill="url(#g)"/>
+  <text x="42" y="60" fill="#f8fafc" font-family="Microsoft YaHei, Arial" font-size="30" font-weight="700">生鲜物流 · 三维装箱 &amp; 路径优化系统</text>
+  <rect x="42" y="96" width="1196" height="210" rx="14" fill="#1f2937"/>
+  <text x="74" y="150" fill="#f8fafc" font-family="Microsoft YaHei, Arial" font-size="24" font-weight="700">深度学习增强协同优化结果</text>
+  <text x="74" y="184" fill="#94a3b8" font-family="Microsoft YaHei, Arial" font-size="18">MLP货损预测 + 遗传算法 + 2-opt + 装箱可行性检验</text>
+  <rect x="1020" y="132" width="170" height="48" rx="8" fill="#4f7ee8"/>
+  <text x="1050" y="164" fill="#fff" font-family="Microsoft YaHei, Arial" font-size="17">运行算法结果</text>
+  <g font-family="Microsoft YaHei, Arial">
+    <rect x="74" y="216" width="205" height="64" rx="8" fill="#111827" stroke="#334155"/>
+    <text x="92" y="242" fill="#94a3b8" font-size="14">最终综合成本</text>
+    <text x="92" y="270" fill="#93c5fd" font-size="27" font-weight="700">¥2,766.96</text>
+    <rect x="296" y="216" width="205" height="64" rx="8" fill="#111827" stroke="#334155"/>
+    <text x="314" y="242" fill="#94a3b8" font-size="14">总里程</text>
+    <text x="314" y="270" fill="#86efac" font-size="27" font-weight="700">197.49 km</text>
+    <rect x="518" y="216" width="205" height="64" rx="8" fill="#111827" stroke="#334155"/>
+    <text x="536" y="242" fill="#94a3b8" font-size="14">总碳排放</text>
+    <text x="536" y="270" fill="#bef264" font-size="27" font-weight="700">164.99 kg</text>
+    <rect x="740" y="216" width="205" height="64" rx="8" fill="#111827" stroke="#334155"/>
+    <text x="758" y="242" fill="#94a3b8" font-size="14">平均预测货损率</text>
+    <text x="758" y="270" fill="#fde047" font-size="27" font-weight="700">6.52%</text>
+    <rect x="962" y="216" width="228" height="64" rx="8" fill="#111827" stroke="#334155"/>
+    <text x="980" y="242" fill="#94a3b8" font-size="14">准时送达率</text>
+    <text x="980" y="270" fill="#67e8f9" font-size="27" font-weight="700">88.89%</text>
+  </g>
+  <rect x="42" y="348" width="110" height="44" rx="8" fill="#4169e1"/>
+  <text x="66" y="376" fill="#fff" font-family="Microsoft YaHei, Arial" font-size="18" font-weight="700">订单管理</text>
+  <rect x="170" y="348" width="110" height="44" rx="8" fill="#1f2937"/>
+  <text x="195" y="376" fill="#e2e8f0" font-family="Microsoft YaHei, Arial" font-size="18" font-weight="700">三维装箱</text>
+  <rect x="298" y="348" width="150" height="44" rx="8" fill="#1f2937"/>
+  <text x="322" y="376" fill="#e2e8f0" font-family="Microsoft YaHei, Arial" font-size="18" font-weight="700">路径优化 &amp; QGIS</text>
+  <rect x="42" y="430" width="1196" height="260" rx="14" fill="#1f2937"/>
+  <text x="74" y="480" fill="#f8fafc" font-family="Microsoft YaHei, Arial" font-size="24" font-weight="700">配送订单列表（可编辑）</text>
+  <rect x="78" y="512" width="1124" height="76" rx="8" fill="#0f172a" stroke="#334155"/>
+  <text x="104" y="558" fill="#e2e8f0" font-family="Microsoft YaHei, Arial" font-size="18">手动录入新订单：订单号、发货地、收货地、周转箱型号、数量、重量与时间窗</text>
+  <line x1="78" y1="632" x2="1202" y2="632" stroke="#334155"/>
+  <text x="84" y="664" fill="#cbd5e1" font-family="Microsoft YaHei, Arial" font-size="16">PEAR-009　滁州冷链中心 → 明光路生鲜点　箱型 MIXED　08:30 → 10:30　准时</text>
+  <text x="84" y="700" fill="#cbd5e1" font-family="Microsoft YaHei, Arial" font-size="16">PEAR-011　滁州冷链中心 → 清流路商超　箱型 MIXED　08:30 → 10:30　准时</text>
+</svg>
