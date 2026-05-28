@@ -10,6 +10,17 @@
 
 > Fresh cold-chain collaborative optimization system with 3D bin packing, route planning, loss prediction, carbon accounting, and delivery time-window evaluation.
 
+## 立即体验
+
+想先看效果，不想安装后端环境，可以直接体验单页网页演示：
+
+- **在线入口**：启用 GitHub Pages 后访问 `https://xiaozuo497.github.io/-/`
+- **仓库入口**：打开 [index.html](index.html)，再进入网页演示
+- **本地入口**：下载仓库后双击 [web-demo/生鲜物流1.0.html](web-demo/%E7%94%9F%E9%B2%9C%E7%89%A9%E6%B5%811.0.html)
+- **上手教程**：[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)
+
+单页演示不需要安装 Python、Node.js 或数据库，适合老师、同学和评审先快速查看订单录入、三维装箱、路径优化与 QGIS 导出效果。
+
 ## 运行效果
 
 | 订单与指标总览 | 三维装箱可视化 | 路径优化与 QGIS |
